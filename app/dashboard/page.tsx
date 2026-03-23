@@ -37,12 +37,23 @@ async function getOverviewMetrics() {
     supabaseAdmin.from("my_posts").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("teams").select("*", { count: "exact", head: true }),
     supabaseAdmin.from("companies").select("*", { count: "exact", head: true }),
-    supabaseAdmin.from("prompt_usage_logs").select("total_tokens, estimated_cost"),
+    supabaseAdmin.from("prompt_usage_logs").select("input_tokens, output_tokens, total_tokens, model"),
     supabaseAdmin.from("generated_posts").select("user_id").gte("created_at", weekAgoISO),
   ])
 
+  // Real OpenRouter per-token pricing
+  const PRICING: Record<string, { input: number; output: number }> = {
+    "openai/gpt-4.1": { input: 0.000002, output: 0.000008 },
+    "openai/gpt-4.1-2025-04-14": { input: 0.000002, output: 0.000008 },
+    "openai/gpt-4o": { input: 0.0000025, output: 0.00001 },
+  }
+  const DEF = { input: 0.000002, output: 0.000008 }
+
   const totalTokens = tokenData.data?.reduce((sum, r) => sum + (r.total_tokens || 0), 0) ?? 0
-  const totalCost = tokenData.data?.reduce((sum, r) => sum + Number(r.estimated_cost || 0), 0) ?? 0
+  const totalCost = tokenData.data?.reduce((sum, r) => {
+    const p = PRICING[r.model] || DEF
+    return sum + ((r.input_tokens || 0) * p.input) + ((r.output_tokens || 0) * p.output)
+  }, 0) ?? 0
   const activeUsers = new Set(activeUsersData.data?.map((r) => r.user_id)).size
 
   const userGrowth = usersPrevWeek

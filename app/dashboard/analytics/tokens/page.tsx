@@ -16,15 +16,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-function estimateCost(tokens: number, model: string): number {
-  // Approximate OpenRouter pricing per 1M tokens
-  const pricing: Record<string, number> = {
-    "openai/gpt-4.1": 2.0,
-    "openai/gpt-4.1-2025-04-14": 2.0,
-    "openai/gpt-4o": 2.5,
-  }
-  const rate = pricing[model] || 2.0
-  return (tokens / 1_000_000) * rate
+// Real OpenRouter per-token pricing (from /api/v1/models)
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "openai/gpt-4.1":                { input: 0.000002,  output: 0.000008 },
+  "openai/gpt-4.1-2025-04-14":     { input: 0.000002,  output: 0.000008 },
+  "openai/gpt-4o":                  { input: 0.0000025, output: 0.00001 },
+}
+const DEFAULT_PRICING = { input: 0.000002, output: 0.000008 }
+
+function computeCost(inputTokens: number, outputTokens: number, model: string): number {
+  const p = MODEL_PRICING[model] || DEFAULT_PRICING
+  return (inputTokens * p.input) + (outputTokens * p.output)
 }
 
 export default async function TokensAnalyticsPage() {
@@ -32,7 +34,7 @@ export default async function TokensAnalyticsPage() {
   const [{ data: logs }, openRouterBalance] = await Promise.all([
     supabaseAdmin
       .from("prompt_usage_logs")
-      .select("user_id, total_tokens, estimated_cost, model, feature, response_time_ms, created_at"),
+      .select("user_id, input_tokens, output_tokens, total_tokens, estimated_cost, model, feature, response_time_ms, created_at"),
     getOpenRouterBalance(),
   ])
 
@@ -40,7 +42,7 @@ export default async function TokensAnalyticsPage() {
 
   // Calculate totals using estimated cost from tokens
   const totalTokens = allLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
-  const totalCost = allLogs.reduce((sum, l) => sum + estimateCost(l.total_tokens || 0, l.model || ""), 0)
+  const totalCost = allLogs.reduce((sum, l) => sum + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""), 0)
 
   // Unique users
   const uniqueUsers = new Set(allLogs.map((l) => l.user_id)).size
@@ -54,13 +56,13 @@ export default async function TokensAnalyticsPage() {
     (l) => new Date(l.created_at) >= weekAgo
   )
   const tokensThisWeek = weekLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
-  const costThisWeek = weekLogs.reduce((sum, l) => sum + estimateCost(l.total_tokens || 0, l.model || ""), 0)
+  const costThisWeek = weekLogs.reduce((sum, l) => sum + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""), 0)
 
   // Cost by model
   const costByModel: Record<string, number> = {}
   for (const l of allLogs) {
     const model = l.model ?? "unknown"
-    costByModel[model] = (costByModel[model] ?? 0) + estimateCost(l.total_tokens || 0, l.model || "")
+    costByModel[model] = (costByModel[model] ?? 0) + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || "")
   }
   const modelEntries = Object.entries(costByModel).sort((a, b) => b[1] - a[1])
 
@@ -68,7 +70,7 @@ export default async function TokensAnalyticsPage() {
   const costByFeature: Record<string, number> = {}
   for (const l of allLogs) {
     const feature = l.feature ?? "unknown"
-    costByFeature[feature] = (costByFeature[feature] ?? 0) + estimateCost(l.total_tokens || 0, l.model || "")
+    costByFeature[feature] = (costByFeature[feature] ?? 0) + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || "")
   }
   const featureEntries = Object.entries(costByFeature).sort((a, b) => b[1] - a[1])
 
@@ -83,7 +85,7 @@ export default async function TokensAnalyticsPage() {
       userMap[uid] = { tokens: 0, cost: 0, requests: 0, lastUsed: l.created_at }
     }
     userMap[uid].tokens += l.total_tokens ?? 0
-    userMap[uid].cost += estimateCost(l.total_tokens || 0, l.model || "")
+    userMap[uid].cost += computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || "")
     userMap[uid].requests += 1
     if (l.created_at > userMap[uid].lastUsed) {
       userMap[uid].lastUsed = l.created_at
