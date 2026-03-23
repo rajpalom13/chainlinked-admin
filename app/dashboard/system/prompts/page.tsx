@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { supabaseAdmin } from "@/lib/supabase/client"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
@@ -61,12 +60,7 @@ export default async function PromptsPage() {
           {prompts.map((prompt) => (
             <TableRow key={prompt.id}>
               <TableCell className="font-medium">
-                <Link
-                  href={`/dashboard/system/prompts/${prompt.id}`}
-                  className="underline underline-offset-4 hover:text-primary"
-                >
-                  {prompt.name}
-                </Link>
+                {prompt.name}
               </TableCell>
               <TableCell>{prompt.type}</TableCell>
               <TableCell>v{prompt.version}</TableCell>
