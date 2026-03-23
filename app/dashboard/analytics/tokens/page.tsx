@@ -16,6 +16,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+function estimateCost(tokens: number, model: string): number {
+  // Approximate OpenRouter pricing per 1M tokens
+  const pricing: Record<string, number> = {
+    "openai/gpt-4.1": 2.0,
+    "openai/gpt-4.1-2025-04-14": 2.0,
+    "openai/gpt-4o": 2.5,
+  }
+  const rate = pricing[model] || 2.0
+  return (tokens / 1_000_000) * rate
+}
+
 export default async function TokensAnalyticsPage() {
   // Fetch all usage logs and OpenRouter balance in parallel
   const [{ data: logs }, openRouterBalance] = await Promise.all([
@@ -27,9 +38,9 @@ export default async function TokensAnalyticsPage() {
 
   const allLogs = logs ?? []
 
-  // Calculate totals
+  // Calculate totals using estimated cost from tokens
   const totalTokens = allLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
-  const totalCost = allLogs.reduce((sum, l) => sum + (l.estimated_cost ?? 0), 0)
+  const totalCost = allLogs.reduce((sum, l) => sum + estimateCost(l.total_tokens || 0, l.model || ""), 0)
 
   // Unique users
   const uniqueUsers = new Set(allLogs.map((l) => l.user_id)).size
@@ -43,13 +54,13 @@ export default async function TokensAnalyticsPage() {
     (l) => new Date(l.created_at) >= weekAgo
   )
   const tokensThisWeek = weekLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
-  const costThisWeek = weekLogs.reduce((sum, l) => sum + (l.estimated_cost ?? 0), 0)
+  const costThisWeek = weekLogs.reduce((sum, l) => sum + estimateCost(l.total_tokens || 0, l.model || ""), 0)
 
   // Cost by model
   const costByModel: Record<string, number> = {}
   for (const l of allLogs) {
     const model = l.model ?? "unknown"
-    costByModel[model] = (costByModel[model] ?? 0) + (l.estimated_cost ?? 0)
+    costByModel[model] = (costByModel[model] ?? 0) + estimateCost(l.total_tokens || 0, l.model || "")
   }
   const modelEntries = Object.entries(costByModel).sort((a, b) => b[1] - a[1])
 
@@ -57,7 +68,7 @@ export default async function TokensAnalyticsPage() {
   const costByFeature: Record<string, number> = {}
   for (const l of allLogs) {
     const feature = l.feature ?? "unknown"
-    costByFeature[feature] = (costByFeature[feature] ?? 0) + (l.estimated_cost ?? 0)
+    costByFeature[feature] = (costByFeature[feature] ?? 0) + estimateCost(l.total_tokens || 0, l.model || "")
   }
   const featureEntries = Object.entries(costByFeature).sort((a, b) => b[1] - a[1])
 
@@ -72,14 +83,14 @@ export default async function TokensAnalyticsPage() {
       userMap[uid] = { tokens: 0, cost: 0, requests: 0, lastUsed: l.created_at }
     }
     userMap[uid].tokens += l.total_tokens ?? 0
-    userMap[uid].cost += l.estimated_cost ?? 0
+    userMap[uid].cost += estimateCost(l.total_tokens || 0, l.model || "")
     userMap[uid].requests += 1
     if (l.created_at > userMap[uid].lastUsed) {
       userMap[uid].lastUsed = l.created_at
     }
   }
 
-  // Fetch profiles for user names
+  // Fetch profiles for user names separately (no FK join)
   const userIds = Object.keys(userMap)
   const { data: profiles } = userIds.length > 0
     ? await supabaseAdmin
@@ -88,15 +99,15 @@ export default async function TokensAnalyticsPage() {
         .in("id", userIds)
     : { data: [] }
 
-  const profileMap: Record<string, { full_name: string; email: string }> = {}
+  const profileMap = new Map<string, string>()
   for (const p of profiles ?? []) {
-    profileMap[p.id] = { full_name: p.full_name ?? "", email: p.email ?? "" }
+    profileMap.set(p.id, p.full_name || p.email || p.id.slice(0, 8))
   }
 
   const userRows = userIds
     .map((uid) => ({
       id: uid,
-      name: profileMap[uid]?.full_name || profileMap[uid]?.email || uid.slice(0, 8),
+      name: profileMap.get(uid) || uid.slice(0, 8),
       ...userMap[uid],
       avgTokens: userMap[uid].requests > 0
         ? Math.round(userMap[uid].tokens / userMap[uid].requests)
@@ -105,43 +116,41 @@ export default async function TokensAnalyticsPage() {
     .sort((a, b) => b.cost - a.cost)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 lg:px-6">
       <h1 className="text-2xl font-bold">Token Usage Analytics</h1>
 
       {openRouterBalance && (
-        <div className="px-4 lg:px-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>OpenRouter Account</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Credits Used</p>
-                  <p className="text-xl font-semibold">${openRouterBalance.usage.toFixed(4)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Credit Limit</p>
-                  <p className="text-xl font-semibold">
-                    {openRouterBalance.limit ? `$${openRouterBalance.limit.toFixed(2)}` : "Unlimited"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tier</p>
-                  <p className="text-xl font-semibold">
-                    {openRouterBalance.is_free_tier ? "Free" : "Paid"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Rate Limit</p>
-                  <p className="text-xl font-semibold">
-                    {openRouterBalance.rate_limit.requests}/{openRouterBalance.rate_limit.interval}
-                  </p>
-                </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>OpenRouter Account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Credits Used</p>
+                <p className="text-xl font-semibold">${openRouterBalance.usage.toFixed(4)}</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Credit Limit</p>
+                <p className="text-xl font-semibold">
+                  {openRouterBalance.limit ? `$${openRouterBalance.limit.toFixed(2)}` : "Unlimited"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Tier</p>
+                <p className="text-xl font-semibold">
+                  {openRouterBalance.is_free_tier ? "Free" : "Paid"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Rate Limit</p>
+                <p className="text-xl font-semibold">
+                  {openRouterBalance.rate_limit.requests}/{openRouterBalance.rate_limit.interval}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -153,7 +162,7 @@ export default async function TokensAnalyticsPage() {
         <MetricCard
           title="Total Cost"
           value={`$${totalCost.toFixed(4)}`}
-          subtitle="All time"
+          subtitle="All time (estimated)"
         />
         <MetricCard
           title="Avg Cost / User"
@@ -173,7 +182,7 @@ export default async function TokensAnalyticsPage() {
         <MetricCard
           title="Cost This Week"
           value={`$${costThisWeek.toFixed(4)}`}
-          subtitle="Last 7 days"
+          subtitle="Last 7 days (estimated)"
         />
       </div>
 
