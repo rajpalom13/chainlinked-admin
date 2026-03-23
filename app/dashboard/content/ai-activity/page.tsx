@@ -27,9 +27,11 @@ import { BotIcon } from "lucide-react"
 
 /* ── helpers ── */
 
-function userName(row: { profiles: unknown }): string {
-  const p = row.profiles as unknown as { full_name: string; email: string } | null
-  return p?.full_name || p?.email || "Unknown"
+type NameMap = Map<string, string>
+
+function getUserName(userId: string | null, names: NameMap): string {
+  if (!userId) return "—"
+  return names.get(userId) || userId.slice(0, 8)
 }
 
 function shortModel(model: string | null): string {
@@ -56,33 +58,36 @@ function metadataSummary(metadata: unknown): string {
 /* ── page ── */
 
 export default async function AIActivityPage() {
-  const [logsRes, convsRes, postsRes] = await Promise.all([
+  const [logsRes, convsRes, postsRes, profilesRes] = await Promise.all([
     supabaseAdmin
       .from("prompt_usage_logs")
-      .select(
-        "id, prompt_type, feature, model, input_tokens, output_tokens, total_tokens, response_time_ms, success, error_message, metadata, created_at, profiles(full_name, email)"
-      )
+      .select("id, user_id, prompt_type, feature, model, input_tokens, output_tokens, total_tokens, response_time_ms, success, error_message, metadata, created_at")
       .order("created_at", { ascending: false })
       .limit(100),
     supabaseAdmin
       .from("compose_conversations")
-      .select(
-        "id, title, mode, tone, messages, is_active, created_at, profiles(full_name, email)"
-      )
+      .select("id, user_id, title, mode, tone, messages, is_active, created_at")
       .order("created_at", { ascending: false })
       .limit(50),
     supabaseAdmin
       .from("generated_posts")
-      .select(
-        "id, content, post_type, source, word_count, hook, cta, status, created_at, profiles(full_name, email)"
-      )
+      .select("id, user_id, content, post_type, source, word_count, hook, cta, status, created_at")
       .order("created_at", { ascending: false })
       .limit(100),
+    supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email"),
   ])
 
   const logs = logsRes.data ?? []
   const conversations = convsRes.data ?? []
   const posts = postsRes.data ?? []
+
+  // Build user name lookup map
+  const names: NameMap = new Map()
+  profilesRes.data?.forEach((p) => {
+    names.set(p.id, p.full_name || p.email || p.id.slice(0, 8))
+  })
 
   return (
     <div className="flex flex-col gap-4 px-4 lg:px-6">
@@ -133,7 +138,7 @@ export default async function AIActivityPage() {
                   <TableBody>
                     {logs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell>{userName(log)}</TableCell>
+                        <TableCell>{getUserName(log.user_id, names)}</TableCell>
                         <TableCell>
                           <Badge variant="secondary">{log.feature ?? log.prompt_type ?? "—"}</Badge>
                         </TableCell>
@@ -200,7 +205,7 @@ export default async function AIActivityPage() {
                             </div>
                           </div>
                           <CardDescription>
-                            {userName(conv)} &middot; {conv.tone ?? "no tone"} &middot;{" "}
+                            {getUserName(conv.user_id, names)} &middot; {conv.tone ?? "no tone"} &middot;{" "}
                             {messages.length} message{messages.length !== 1 ? "s" : ""} &middot;{" "}
                             {new Date(conv.created_at).toLocaleDateString()}
                           </CardDescription>
@@ -268,7 +273,7 @@ export default async function AIActivityPage() {
 
                       return (
                         <TableRow key={post.id}>
-                          <TableCell>{userName(post)}</TableCell>
+                          <TableCell>{getUserName(post.user_id, names)}</TableCell>
                           <TableCell className="max-w-[300px]">
                             <p className="line-clamp-2 text-sm">
                               {post.content?.slice(0, 120) ?? "—"}
