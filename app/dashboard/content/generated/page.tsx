@@ -71,9 +71,13 @@ export default async function GeneratedPostsPage() {
           {posts.map((post) => {
             return (
               <TableRow key={post.id}>
-                <TableCell className="max-w-[300px] truncate">
-                  {post.content?.slice(0, 80) ?? "—"}
-                  {post.content && post.content.length > 80 ? "..." : ""}
+                <TableCell className="max-w-sm">
+                  <details>
+                    <summary className="cursor-pointer text-sm line-clamp-2">{post.content?.slice(0, 100) ?? "—"}...</summary>
+                    <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded border bg-muted/50 p-3 text-sm">
+                      {post.content}
+                    </div>
+                  </details>
                 </TableCell>
                 <TableCell>{names.get(post.user_id) ?? "Unknown"}</TableCell>
                 <TableCell>

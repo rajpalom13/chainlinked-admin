@@ -16,7 +16,7 @@ export default async function TemplatesPage() {
     supabaseAdmin
       .from("templates")
       .select(
-        "id, user_id, name, category, is_public, usage_count, is_ai_generated, created_at",
+        "id, user_id, name, content, category, is_public, usage_count, is_ai_generated, created_at",
         { count: "exact" }
       )
       .order("created_at", { ascending: false })
@@ -69,8 +69,13 @@ export default async function TemplatesPage() {
           {templates.map((template) => {
             return (
               <TableRow key={template.id}>
-                <TableCell className="font-medium">
-                  {template.name ?? "Untitled"}
+                <TableCell className="max-w-sm font-medium">
+                  <details>
+                    <summary className="cursor-pointer text-sm">{template.name ?? "Untitled"}</summary>
+                    <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded border bg-muted/50 p-3 text-sm font-normal">
+                      {template.content ?? template.name ?? "No content"}
+                    </div>
+                  </details>
                 </TableCell>
                 <TableCell>{names.get(template.user_id) ?? "Unknown"}</TableCell>
                 <TableCell>{template.category ?? "—"}</TableCell>

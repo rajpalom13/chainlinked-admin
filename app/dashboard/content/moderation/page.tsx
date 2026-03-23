@@ -117,9 +117,14 @@ export default async function ModerationPage() {
                       {new Date(item.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="line-clamp-3 text-sm text-muted-foreground">
-                    {item.content ?? "No content"}
-                  </p>
+                  <details>
+                    <summary className="cursor-pointer text-sm text-muted-foreground line-clamp-2">
+                      {item.content?.slice(0, 100) ?? "No content"}...
+                    </summary>
+                    <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded border bg-muted/50 p-3 text-sm">
+                      {item.content}
+                    </div>
+                  </details>
                 </div>
               ))}
             </div>
