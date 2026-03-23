@@ -34,9 +34,10 @@ Admin dashboard for ChainLinked, a LinkedIn content management SaaS. Provides a 
 - **No Google OAuth** — username/password only
 
 ### Security
-- HTTP-only, Secure, SameSite=Strict cookies
+- HTTP-only, Secure, SameSite=Strict cookies (also serves as CSRF protection for mutation endpoints)
 - bcrypt cost factor 12
-- Rate limiting on login endpoint (optional, can add later)
+- Rate limiting on login endpoint: simple in-memory rate limiter (5 attempts per IP per 15 minutes)
+- All admin actions logged to application console (structured JSON) as a lightweight audit trail
 
 ## Data Access
 
@@ -50,6 +51,7 @@ Admin dashboard for ChainLinked, a LinkedIn content management SaaS. Provides a 
   - `POSTHOG_API_KEY` (personal API key for server-side queries)
   - `POSTHOG_PROJECT_ID`
   - `OPENROUTER_API_KEY` (for usage API, if available)
+  - `POSTHOG_DASHBOARD_URL` (shared dashboard URL for iframe embed)
 
 ## Pages & Navigation
 
@@ -82,8 +84,8 @@ Dashboard (overview)
 **Top row — 6 metric cards:**
 | Card | Source | Calculation |
 |------|--------|-------------|
-| Total Users | `auth.users` count | Total + growth % vs previous week |
-| Active Users (7d) | `profiles` where `extension_last_active_at` > 7d ago or recent post activity | Count |
+| Total Users | `profiles` count (proxy for auth.users) | Total + growth % vs previous week |
+| Active Users (7d) | `profiles` where `extension_last_active_at` > 7d ago, OR users with recent `generated_posts`/`scheduled_posts` in last 7d | Count |
 | Posts Generated | `generated_posts` count | Total + this week count |
 | Posts Published | `scheduled_posts` where status=posted + `my_posts` count | Total + this week |
 | Token Usage | `prompt_usage_logs` sum of `total_tokens` | Total tokens + estimated cost sum |
@@ -123,7 +125,7 @@ Dashboard (overview)
 **Funnel visualization** (horizontal bar chart or step diagram):
 1. Signed Up (total users)
 2. Onboarding Completed (`profiles.onboarding_completed = true`)
-3. LinkedIn Connected (`profiles.linkedin_access_token IS NOT NULL`)
+3. LinkedIn Connected (`linkedin_tokens` table has entry for user, OR `profiles.linkedin_user_id IS NOT NULL`)
 4. First Post Generated (users with >= 1 `generated_posts`)
 5. First Post Scheduled (users with >= 1 `scheduled_posts`)
 6. Active Last 7 Days
@@ -152,8 +154,8 @@ Dashboard (overview)
 
 **Table:** All generated posts + scheduled posts, sorted by newest. Content preview, user, type, date
 **Search:** Full-text content search
-**Actions:** Flag, delete, view full content
-**Note:** No existing flagging system — this page is for manual review. Can add a `flagged` column to `generated_posts` later if needed.
+**Actions:** Delete, view full content
+**Note:** No existing flagging system — moderation is manual review only. Flagging can be added in a future iteration with a DB migration.
 
 ### Analytics — Token Usage (`/dashboard/analytics/tokens`)
 
@@ -279,7 +281,7 @@ app/
 │       │   ├── [id]/route.ts (suspend/delete)
 │       │   └── route.ts (list with filters)
 │       ├── content/
-│       │   └── [id]/route.ts (flag/delete)
+│       │   └── [id]/route.ts (delete)
 │       ├── prompts/
 │       │   └── [id]/route.ts (update)
 │       └── flags/
@@ -318,11 +320,19 @@ CREATE TABLE feature_flags (
 );
 ```
 
+## UI Patterns
+
+- **Pagination:** All tables use offset-based pagination with configurable page size (default 20, options: 10/20/50). Server-side pagination via Supabase `.range()`.
+- **Loading states:** Skeleton loaders for metric cards and charts. Table skeleton rows while data loads.
+- **Empty states:** Friendly message + icon when no data exists for a table or chart.
+- **Error handling:** Toast notification (Sonner) for failed mutations. Inline error message for failed data fetches with retry button.
+- **Confirmation:** Destructive actions (delete user, delete content) require a confirmation dialog with the item name typed to confirm.
+
 ## Out of Scope
 
 - Revenue/payment tracking (no payment system yet)
 - Email notifications from admin panel
-- Audit log for admin actions (can add later)
+- Formal audit log table (console logging covers the basics)
 - Multi-admin roles/permissions (solo founder)
 - Real-time WebSocket updates (polling/refresh is fine)
 - Mobile-responsive admin layout (desktop-only is acceptable)
