@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { BotIcon } from "lucide-react"
+import { BotIcon, ExternalLinkIcon } from "lucide-react"
 
 /* ── helpers ── */
 
@@ -45,6 +45,12 @@ function formatMs(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
+function formatCost(cost: number | null | undefined): string {
+  if (cost == null) return "—"
+  if (cost < 0.01) return `$${cost.toFixed(4)}`
+  return `$${cost.toFixed(2)}`
+}
+
 function metadataSummary(metadata: unknown): string {
   if (!metadata || typeof metadata !== "object") return "—"
   const m = metadata as Record<string, unknown>
@@ -58,10 +64,10 @@ function metadataSummary(metadata: unknown): string {
 /* ── page ── */
 
 export default async function AIActivityPage() {
-  const [logsRes, convsRes, postsRes, profilesRes] = await Promise.all([
+  const [logsRes, convsRes, postsRes, profilesRes, linkedPostsRes] = await Promise.all([
     supabaseAdmin
       .from("prompt_usage_logs")
-      .select("id, user_id, prompt_type, feature, model, input_tokens, output_tokens, total_tokens, response_time_ms, success, error_message, metadata, created_at")
+      .select("id, user_id, prompt_type, feature, model, input_tokens, output_tokens, total_tokens, estimated_cost, response_time_ms, success, error_message, metadata, created_at")
       .order("created_at", { ascending: false })
       .limit(100),
     supabaseAdmin
@@ -77,11 +83,25 @@ export default async function AIActivityPage() {
     supabaseAdmin
       .from("profiles")
       .select("id, full_name, email"),
+    // Fetch posts that are linked to conversations
+    supabaseAdmin
+      .from("generated_posts")
+      .select("id, conversation_id, content")
+      .not("conversation_id", "is", null),
   ])
 
   const logs = logsRes.data ?? []
   const conversations = convsRes.data ?? []
   const posts = postsRes.data ?? []
+  const linkedPosts = linkedPostsRes.data ?? []
+
+  // Build conversation_id -> post map
+  const postsByConversation = new Map<string, { id: string; content: string | null }>()
+  for (const post of linkedPosts) {
+    if (post.conversation_id) {
+      postsByConversation.set(post.conversation_id, { id: post.id, content: post.content })
+    }
+  }
 
   // Build user name lookup map
   const names: NameMap = new Map()
@@ -130,6 +150,7 @@ export default async function AIActivityPage() {
                       <TableHead>Model</TableHead>
                       <TableHead>Input Summary</TableHead>
                       <TableHead>Tokens</TableHead>
+                      <TableHead>Est. Cost</TableHead>
                       <TableHead>Response Time</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Date</TableHead>
@@ -150,6 +171,9 @@ export default async function AIActivityPage() {
                         </TableCell>
                         <TableCell className="tabular-nums">
                           {log.total_tokens?.toLocaleString() ?? "—"}
+                        </TableCell>
+                        <TableCell className="tabular-nums font-mono text-xs">
+                          {formatCost(log.estimated_cost)}
                         </TableCell>
                         <TableCell className="tabular-nums">
                           {formatMs(log.response_time_ms)}
@@ -182,63 +206,61 @@ export default async function AIActivityPage() {
                   icon={<BotIcon className="size-12" />}
                 />
               ) : (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
                   {conversations.map((conv) => {
                     const messages = (conv.messages ?? []) as Array<{
                       id: string
                       role: string
                       parts: Array<{ text: string; type: string }>
                     }>
+                    const linkedPost = postsByConversation.get(conv.id)
+                    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
+                    const lastText = lastMessage?.parts
+                      ?.map((p) => p.text)
+                      .filter(Boolean)
+                      .join(" ")
+                      ?.slice(0, 100) ?? ""
 
                     return (
-                      <Card key={conv.id}>
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">
-                              {conv.title || "Untitled conversation"}
-                            </CardTitle>
-                            <div className="flex items-center gap-2">
+                      <Card key={conv.id} className="overflow-hidden">
+                        <div className="flex items-start justify-between gap-4 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm truncate">
+                                {conv.title || "Untitled conversation"}
+                              </span>
                               {conv.is_active && (
-                                <Badge variant="default">Active</Badge>
+                                <Badge variant="default" className="text-[10px] px-1.5 py-0">Active</Badge>
                               )}
-                              <Badge variant="secondary">{conv.mode ?? "—"}</Badge>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{conv.mode ?? "—"}</Badge>
                             </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{getUserName(conv.user_id, names)}</span>
+                              <span>&middot;</span>
+                              <span>{conv.tone ?? "no tone"}</span>
+                              <span>&middot;</span>
+                              <span>{messages.length} msg{messages.length !== 1 ? "s" : ""}</span>
+                              <span>&middot;</span>
+                              <span>{new Date(conv.created_at).toLocaleDateString()}</span>
+                            </div>
+                            {lastText && (
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                Last: {lastText}{lastText.length >= 100 ? "..." : ""}
+                              </p>
+                            )}
                           </div>
-                          <CardDescription>
-                            {getUserName(conv.user_id, names)} &middot; {conv.tone ?? "no tone"} &middot;{" "}
-                            {messages.length} message{messages.length !== 1 ? "s" : ""} &middot;{" "}
-                            {new Date(conv.created_at).toLocaleDateString()}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto">
-                            {messages.map((msg) => {
-                              const text = msg.parts
-                                ?.map((p) => p.text)
-                                .filter(Boolean)
-                                .join(" ") ?? ""
-                              const isAssistant = msg.role === "assistant"
-
-                              return (
-                                <div
-                                  key={msg.id}
-                                  className={`rounded-lg px-3 py-2 text-sm max-w-[80%] ${
-                                    isAssistant
-                                      ? "self-start bg-muted"
-                                      : "self-end bg-primary/10"
-                                  }`}
-                                >
-                                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                                    {msg.role}
-                                  </p>
-                                  <p className="whitespace-pre-wrap break-words line-clamp-6">
-                                    {text}
-                                  </p>
-                                </div>
-                              )
-                            })}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {linkedPost && (
+                              <a
+                                href={`/dashboard/content/generated?post=${linkedPost.id}`}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                <ExternalLinkIcon className="size-3" />
+                                View Post
+                              </a>
+                            )}
                           </div>
-                        </CardContent>
+                        </div>
                       </Card>
                     )
                   })}

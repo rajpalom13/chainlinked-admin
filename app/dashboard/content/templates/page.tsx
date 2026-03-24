@@ -1,15 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/client"
 import { EmptyState } from "@/components/empty-state"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { LayoutTemplateIcon } from "lucide-react"
+import { TemplateList } from "./template-list"
 
 export default async function TemplatesPage() {
   const [templatesRes, profilesRes] = await Promise.all([
@@ -44,8 +36,13 @@ export default async function TemplatesPage() {
     )
   }
 
+  const enrichedTemplates = templates.map((template) => ({
+    ...template,
+    userName: names.get(template.user_id) ?? "Unknown",
+  }))
+
   return (
-    <div className="flex flex-col gap-4 px-4 lg:px-6">
+    <div className="space-y-6 px-4 lg:px-6">
       <div>
         <h1 className="text-2xl font-semibold">Templates</h1>
         <p className="text-sm text-muted-foreground">
@@ -53,53 +50,7 @@ export default async function TemplatesPage() {
         </p>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Creator</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Visibility</TableHead>
-            <TableHead>Usage Count</TableHead>
-            <TableHead>AI</TableHead>
-            <TableHead>Created</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {templates.map((template) => {
-            return (
-              <TableRow key={template.id}>
-                <TableCell className="max-w-sm font-medium">
-                  <details>
-                    <summary className="cursor-pointer text-sm">{template.name ?? "Untitled"}</summary>
-                    <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded border bg-muted/50 p-3 text-sm font-normal">
-                      {template.content ?? template.name ?? "No content"}
-                    </div>
-                  </details>
-                </TableCell>
-                <TableCell>{names.get(template.user_id) ?? "Unknown"}</TableCell>
-                <TableCell>{template.category ?? "—"}</TableCell>
-                <TableCell>
-                  <Badge variant={template.is_public ? "default" : "secondary"}>
-                    {template.is_public ? "Public" : "Private"}
-                  </Badge>
-                </TableCell>
-                <TableCell>{template.usage_count ?? 0}</TableCell>
-                <TableCell>
-                  {template.is_ai_generated ? (
-                    <Badge variant="outline">AI Generated</Badge>
-                  ) : (
-                    "—"
-                  )}
-                </TableCell>
-                <TableCell>
-                  {new Date(template.created_at).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+      <TemplateList templates={enrichedTemplates} />
     </div>
   )
 }

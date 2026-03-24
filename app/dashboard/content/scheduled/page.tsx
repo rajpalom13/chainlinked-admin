@@ -1,23 +1,14 @@
 import { supabaseAdmin } from "@/lib/supabase/client"
 import { EmptyState } from "@/components/empty-state"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { ClockIcon } from "lucide-react"
+import { ScheduledPostList } from "./scheduled-post-list"
 
 export default async function ScheduledPostsPage() {
   const [postsRes, profilesRes] = await Promise.all([
     supabaseAdmin
       .from("scheduled_posts")
       .select(
-        "id, user_id, content, scheduled_for, timezone, status, error_message, posted_at, created_at",
+        "id, user_id, content, scheduled_for, timezone, status, error_message, posted_at, created_at, generated_post_id",
         { count: "exact" }
       )
       .order("created_at", { ascending: false })
@@ -45,8 +36,13 @@ export default async function ScheduledPostsPage() {
     )
   }
 
+  const enrichedPosts = posts.map((post) => ({
+    ...post,
+    userName: names.get(post.user_id) ?? "Unknown",
+  }))
+
   return (
-    <div className="flex flex-col gap-4 px-4 lg:px-6">
+    <div className="space-y-6 px-4 lg:px-6">
       <div>
         <h1 className="text-2xl font-semibold">Scheduled Posts</h1>
         <p className="text-sm text-muted-foreground">
@@ -54,72 +50,7 @@ export default async function ScheduledPostsPage() {
         </p>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Content</TableHead>
-            <TableHead>User</TableHead>
-            <TableHead>Scheduled For</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Error</TableHead>
-            <TableHead>Posted At</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {posts.map((post) => {
-            const isFailed = post.status === "failed"
-
-            return (
-              <TableRow
-                key={post.id}
-                className={cn(isFailed && "bg-red-50 dark:bg-red-950/20")}
-              >
-                <TableCell className="max-w-sm">
-                  <details>
-                    <summary className="cursor-pointer text-sm line-clamp-2">{post.content?.slice(0, 100) ?? "—"}...</summary>
-                    <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap rounded border bg-muted/50 p-3 text-sm">
-                      {post.content}
-                    </div>
-                  </details>
-                </TableCell>
-                <TableCell>{names.get(post.user_id) ?? "Unknown"}</TableCell>
-                <TableCell>
-                  {post.scheduled_for
-                    ? new Date(post.scheduled_for).toLocaleString()
-                    : "—"}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      isFailed
-                        ? "destructive"
-                        : post.status === "posted"
-                          ? "default"
-                          : "secondary"
-                    }
-                  >
-                    {post.status ?? "—"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {post.error_message ? (
-                    <span className="text-sm text-red-600 dark:text-red-400">
-                      {post.error_message}
-                    </span>
-                  ) : (
-                    "—"
-                  )}
-                </TableCell>
-                <TableCell>
-                  {post.posted_at
-                    ? new Date(post.posted_at).toLocaleString()
-                    : "—"}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+      <ScheduledPostList posts={enrichedPosts} />
     </div>
   )
 }

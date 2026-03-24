@@ -5,15 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { CheckIcon } from "lucide-react"
+import { FeatureAdoptionChart, FeatureHeatmapGrid } from "@/components/charts/feature-charts"
 
 const FEATURES = [
   { key: "generated_posts", label: "Generated Posts" },
@@ -51,7 +43,6 @@ async function getFeatureUsers(
 }
 
 export default async function FeaturesAnalyticsPage() {
-  // Gather counts and user sets in parallel
   const [counts, userSets] = await Promise.all([
     Promise.all(FEATURES.map((f) => getFeatureCount(f.key))),
     Promise.all(FEATURES.map((f) => getFeatureUsers(f.key))),
@@ -65,7 +56,7 @@ export default async function FeaturesAnalyticsPage() {
 
   const maxCount = Math.max(...featureData.map((f) => f.count), 1)
 
-  // Collect all unique user IDs across features
+  // Collect all unique user IDs
   const allUserIds = new Set<string>()
   for (const f of featureData) {
     for (const uid of f.users) {
@@ -73,7 +64,6 @@ export default async function FeaturesAnalyticsPage() {
     }
   }
 
-  // Fetch profiles
   const userIds = Array.from(allUserIds)
   const { data: profiles } = userIds.length > 0
     ? await supabaseAdmin
@@ -91,9 +81,38 @@ export default async function FeaturesAnalyticsPage() {
     (profileMap[a] ?? a).localeCompare(profileMap[b] ?? b)
   )
 
+  // Chart data for bar chart
+  const adoptionChartData = featureData.map((f) => ({
+    label: f.label,
+    count: f.count,
+    users: f.users.size,
+  }))
+
+  // Build matrix for heatmap (feature key -> array of user IDs, serializable)
+  const matrixMap: Record<string, string[]> = {}
+  for (const f of featureData) {
+    matrixMap[f.key] = Array.from(f.users)
+  }
+
+  // Max features a single user uses (for color intensity)
+  const maxUserFeatures = sortedUserIds.reduce((max, uid) => {
+    let count = 0
+    for (const f of featureData) {
+      if (f.users.has(uid)) count++
+    }
+    return Math.max(max, count)
+  }, 1)
+
+  const heatmapUsers = sortedUserIds.map((uid) => ({
+    id: uid,
+    name: profileMap[uid] ?? uid.slice(0, 8),
+  }))
+
   return (
     <div className="space-y-6 px-4 lg:px-6">
       <h1 className="text-2xl font-bold">Feature Usage Analytics</h1>
+
+      <FeatureAdoptionChart data={adoptionChartData} />
 
       <Card>
         <CardHeader>
@@ -106,7 +125,7 @@ export default async function FeaturesAnalyticsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{f.label}</span>
                   <span className="tabular-nums text-muted-foreground">
-                    {f.count.toLocaleString()}
+                    {f.count.toLocaleString()} records &middot; {f.users.size} user{f.users.size !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted">
@@ -123,52 +142,14 @@ export default async function FeaturesAnalyticsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Per-User Feature Matrix</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                {featureData.map((f) => (
-                  <TableHead key={f.key} className="text-center">
-                    {f.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedUserIds.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={featureData.length + 1}
-                    className="text-center text-muted-foreground"
-                  >
-                    No usage data
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedUserIds.map((uid) => (
-                  <TableRow key={uid}>
-                    <TableCell className="font-medium">
-                      {profileMap[uid] ?? uid.slice(0, 8)}
-                    </TableCell>
-                    {featureData.map((f) => (
-                      <TableCell key={f.key} className="text-center">
-                        {f.users.has(uid) ? (
-                          <CheckIcon className="mx-auto size-4 text-primary" />
-                        ) : null}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {heatmapUsers.length > 0 && (
+        <FeatureHeatmapGrid
+          users={heatmapUsers}
+          features={FEATURES.map((f) => ({ key: f.key, label: f.label }))}
+          matrix={matrixMap}
+          maxFeatures={maxUserFeatures}
+        />
+      )}
     </div>
   )
 }

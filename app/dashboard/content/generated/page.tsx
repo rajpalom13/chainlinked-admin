@@ -9,7 +9,7 @@ export default async function GeneratedPostsPage() {
     supabaseAdmin
       .from("generated_posts")
       .select(
-        "id, user_id, content, post_type, source, status, word_count, hook, cta, created_at",
+        "id, user_id, content, post_type, source, status, word_count, hook, cta, created_at, conversation_id, prompt_snapshot, prompt_tokens, completion_tokens, total_tokens, model, estimated_cost",
         { count: "exact" }
       )
       .order("created_at", { ascending: false })

@@ -15,22 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-// Real OpenRouter per-token pricing (from /api/v1/models)
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "openai/gpt-4.1":                { input: 0.000002,  output: 0.000008 },
-  "openai/gpt-4.1-2025-04-14":     { input: 0.000002,  output: 0.000008 },
-  "openai/gpt-4o":                  { input: 0.0000025, output: 0.00001 },
-}
-const DEFAULT_PRICING = { input: 0.000002, output: 0.000008 }
-
-function computeCost(inputTokens: number, outputTokens: number, model: string): number {
-  const p = MODEL_PRICING[model] || DEFAULT_PRICING
-  return (inputTokens * p.input) + (outputTokens * p.output)
-}
+import { DailyCostTrend } from "@/components/charts/token-charts"
 
 export default async function TokensAnalyticsPage() {
-  // Fetch all usage logs and OpenRouter balance in parallel
   const [{ data: logs }, openRouterBalance] = await Promise.all([
     supabaseAdmin
       .from("prompt_usage_logs")
@@ -40,11 +27,10 @@ export default async function TokensAnalyticsPage() {
 
   const allLogs = logs ?? []
 
-  // Calculate totals using estimated cost from tokens
+  // Use actual estimated_cost from the database
   const totalTokens = allLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
-  const totalCost = allLogs.reduce((sum, l) => sum + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""), 0)
+  const totalCost = allLogs.reduce((sum, l) => sum + (l.estimated_cost || 0), 0)
 
-  // Unique users
   const uniqueUsers = new Set(allLogs.map((l) => l.user_id)).size
   const avgCostPerUser = uniqueUsers > 0 ? totalCost / uniqueUsers : 0
   const avgCostPerRequest = allLogs.length > 0 ? totalCost / allLogs.length : 0
@@ -52,29 +38,27 @@ export default async function TokensAnalyticsPage() {
   // This week
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const weekLogs = allLogs.filter(
-    (l) => new Date(l.created_at) >= weekAgo
-  )
+  const weekLogs = allLogs.filter((l) => new Date(l.created_at) >= weekAgo)
   const tokensThisWeek = weekLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
-  const costThisWeek = weekLogs.reduce((sum, l) => sum + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""), 0)
+  const costThisWeek = weekLogs.reduce((sum, l) => sum + (l.estimated_cost || 0), 0)
 
-  // Cost by model
+  // Cost by model (using estimated_cost)
   const costByModel: Record<string, number> = {}
   for (const l of allLogs) {
     const model = l.model ?? "unknown"
-    costByModel[model] = (costByModel[model] ?? 0) + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || "")
+    costByModel[model] = (costByModel[model] ?? 0) + (l.estimated_cost || 0)
   }
   const modelEntries = Object.entries(costByModel).sort((a, b) => b[1] - a[1])
 
-  // Cost by feature
+  // Cost by feature (using estimated_cost)
   const costByFeature: Record<string, number> = {}
   for (const l of allLogs) {
     const feature = l.feature ?? "unknown"
-    costByFeature[feature] = (costByFeature[feature] ?? 0) + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || "")
+    costByFeature[feature] = (costByFeature[feature] ?? 0) + (l.estimated_cost || 0)
   }
   const featureEntries = Object.entries(costByFeature).sort((a, b) => b[1] - a[1])
 
-  // Per-user breakdown
+  // Per-user breakdown (using estimated_cost)
   const userMap: Record<
     string,
     { tokens: number; cost: number; requests: number; lastUsed: string }
@@ -85,14 +69,13 @@ export default async function TokensAnalyticsPage() {
       userMap[uid] = { tokens: 0, cost: 0, requests: 0, lastUsed: l.created_at }
     }
     userMap[uid].tokens += l.total_tokens ?? 0
-    userMap[uid].cost += computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || "")
+    userMap[uid].cost += l.estimated_cost || 0
     userMap[uid].requests += 1
     if (l.created_at > userMap[uid].lastUsed) {
       userMap[uid].lastUsed = l.created_at
     }
   }
 
-  // Fetch profiles for user names separately (no FK join)
   const userIds = Object.keys(userMap)
   const { data: profiles } = userIds.length > 0
     ? await supabaseAdmin
@@ -116,6 +99,27 @@ export default async function TokensAnalyticsPage() {
         : 0,
     }))
     .sort((a, b) => b.cost - a.cost)
+
+  // Daily cost trend chart data (last 30 days)
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const dailyCostMap: Record<string, number> = {}
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000)
+    const key = d.toISOString().split("T")[0]
+    dailyCostMap[key] = 0
+  }
+  for (const l of allLogs) {
+    const dateKey = new Date(l.created_at).toISOString().split("T")[0]
+    if (dailyCostMap[dateKey] !== undefined) {
+      dailyCostMap[dateKey] += l.estimated_cost || 0
+    }
+  }
+  const dailyCostData = Object.entries(dailyCostMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, cost]) => ({
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      cost,
+    }))
 
   return (
     <div className="space-y-6 px-4 lg:px-6">
@@ -164,7 +168,7 @@ export default async function TokensAnalyticsPage() {
         <MetricCard
           title="Total Cost"
           value={`$${totalCost.toFixed(4)}`}
-          subtitle="All time (estimated)"
+          subtitle="All time (from estimated_cost)"
         />
         <MetricCard
           title="Avg Cost / User"
@@ -184,9 +188,11 @@ export default async function TokensAnalyticsPage() {
         <MetricCard
           title="Cost This Week"
           value={`$${costThisWeek.toFixed(4)}`}
-          subtitle="Last 7 days (estimated)"
+          subtitle="Last 7 days"
         />
       </div>
+
+      <DailyCostTrend data={dailyCostData} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

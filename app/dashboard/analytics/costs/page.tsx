@@ -1,0 +1,239 @@
+import { supabaseAdmin } from "@/lib/supabase/client"
+import { MetricCard } from "@/components/metric-card"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  CostDailyLineChart,
+  CostByModelBarChart,
+  CostByFeatureBarChart,
+  MonthlyTrendChart,
+} from "@/components/charts/cost-charts"
+
+export default async function CostDashboardPage() {
+  const [{ data: logs }, { data: profiles }] = await Promise.all([
+    supabaseAdmin
+      .from("prompt_usage_logs")
+      .select("user_id, estimated_cost, model, feature, created_at"),
+    supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email"),
+  ])
+
+  const allLogs = logs ?? []
+
+  const profileMap = new Map<string, string>()
+  for (const p of profiles ?? []) {
+    profileMap.set(p.id, p.full_name || p.email || p.id.slice(0, 8))
+  }
+
+  const now = new Date()
+
+  // ---- Summary cards ----
+  const totalSpend = allLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthLogs = allLogs.filter((l) => new Date(l.created_at) >= startOfMonth)
+  const monthSpend = monthLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
+
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const weekLogs = allLogs.filter((l) => new Date(l.created_at) >= weekAgo)
+  const weekSpend = weekLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
+
+  const todayStr = now.toISOString().split("T")[0]
+  const todayLogs = allLogs.filter((l) => l.created_at.startsWith(todayStr))
+  const todaySpend = todayLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
+
+  // ---- Daily cost (last 30 days) ----
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const dailyCostMap: Record<string, number> = {}
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000)
+    dailyCostMap[d.toISOString().split("T")[0]] = 0
+  }
+  for (const l of allLogs) {
+    const key = new Date(l.created_at).toISOString().split("T")[0]
+    if (dailyCostMap[key] !== undefined) {
+      dailyCostMap[key] += l.estimated_cost || 0
+    }
+  }
+  const dailyCostData = Object.entries(dailyCostMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, cost]) => ({
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      cost,
+    }))
+
+  // ---- Cost by model ----
+  const costByModel: Record<string, number> = {}
+  for (const l of allLogs) {
+    const model = (l.model ?? "unknown").split("/").pop() || l.model || "unknown"
+    costByModel[model] = (costByModel[model] ?? 0) + (l.estimated_cost || 0)
+  }
+  const costByModelData = Object.entries(costByModel)
+    .sort((a, b) => b[1] - a[1])
+    .map(([model, cost]) => ({ model, cost }))
+
+  // ---- Cost by feature ----
+  const costByFeature: Record<string, number> = {}
+  for (const l of allLogs) {
+    const feature = l.feature ?? "unknown"
+    costByFeature[feature] = (costByFeature[feature] ?? 0) + (l.estimated_cost || 0)
+  }
+  const costByFeatureData = Object.entries(costByFeature)
+    .sort((a, b) => b[1] - a[1])
+    .map(([feature, cost]) => ({ feature, cost }))
+
+  // ---- Cost by user ----
+  const costByUser: Record<string, { cost: number; requests: number }> = {}
+  for (const l of allLogs) {
+    const uid = l.user_id
+    if (!costByUser[uid]) costByUser[uid] = { cost: 0, requests: 0 }
+    costByUser[uid].cost += l.estimated_cost || 0
+    costByUser[uid].requests += 1
+  }
+  const userCostRows = Object.entries(costByUser)
+    .sort((a, b) => b[1].cost - a[1].cost)
+    .slice(0, 20)
+  const maxUserCost = userCostRows.length > 0 ? userCostRows[0][1].cost : 1
+
+  // ---- Monthly trend (last 6 months) ----
+  const monthlyCostMap: Record<string, number> = {}
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    monthlyCostMap[key] = 0
+  }
+  for (const l of allLogs) {
+    const d = new Date(l.created_at)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    if (monthlyCostMap[key] !== undefined) {
+      monthlyCostMap[key] += l.estimated_cost || 0
+    }
+  }
+  const monthlyTrendData = Object.entries(monthlyCostMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, cost]) => {
+      const [y, m] = month.split("-")
+      const d = new Date(Number(y), Number(m) - 1)
+      return {
+        month: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        cost,
+      }
+    })
+
+  return (
+    <div className="space-y-6 px-4 lg:px-6">
+      <div>
+        <h1 className="text-2xl font-bold">Cost Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          AI spending analysis across models, features, and users
+        </p>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total AI Spend"
+          value={`$${totalSpend.toFixed(4)}`}
+          subtitle="All time"
+        />
+        <MetricCard
+          title="This Month"
+          value={`$${monthSpend.toFixed(4)}`}
+          subtitle={startOfMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+        />
+        <MetricCard
+          title="This Week"
+          value={`$${weekSpend.toFixed(4)}`}
+          subtitle="Last 7 days"
+        />
+        <MetricCard
+          title="Today"
+          value={`$${todaySpend.toFixed(4)}`}
+          subtitle={now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+        />
+      </div>
+
+      {/* Daily Cost Chart */}
+      <CostDailyLineChart data={dailyCostData} />
+
+      {/* Cost by Model + Feature */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CostByModelBarChart data={costByModelData} />
+        <CostByFeatureBarChart data={costByFeatureData} />
+      </div>
+
+      {/* Cost by User */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Users by Cost</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Requests</TableHead>
+                <TableHead className="text-right">Avg/Req</TableHead>
+                <TableHead className="w-[200px]">Spend</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {userCostRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    No cost data
+                  </TableCell>
+                </TableRow>
+              ) : (
+                userCostRows.map(([uid, stats]) => {
+                  const pct = (stats.cost / maxUserCost) * 100
+                  return (
+                    <TableRow key={uid}>
+                      <TableCell className="font-medium">
+                        {profileMap.get(uid) || uid.slice(0, 8)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-mono">
+                        ${stats.cost.toFixed(4)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {stats.requests.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-mono">
+                        ${stats.requests > 0 ? (stats.cost / stats.requests).toFixed(6) : "0"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-2 w-full rounded-full bg-muted">
+                          <div
+                            className="h-2 rounded-full bg-primary transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Monthly Trend */}
+      <MonthlyTrendChart data={monthlyTrendData} />
+    </div>
+  )
+}

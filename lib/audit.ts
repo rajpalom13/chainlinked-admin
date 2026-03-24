@@ -9,6 +9,9 @@ type AuditAction =
   | "flag.create"
   | "flag.update"
   | "flag.delete"
+  | "sidebar_section.create"
+  | "sidebar_section.update"
+  | "sidebar_section.delete"
   | "password.change"
 
 export function auditLog(action: AuditAction, details: Record<string, unknown>) {

@@ -5,29 +5,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { FlagsManager } from "./flags-manager"
+import { SidebarSectionsManager } from "./sidebar-sections-manager"
 
-async function getFlags() {
+async function getSidebarSections() {
   const { data, error } = await supabaseAdmin
-    .from("feature_flags")
+    .from("sidebar_sections")
     .select("*")
-    .order("name")
+    .order("sort_order")
 
   if (error || !data) return []
   return data
 }
 
-export default async function FlagsPage() {
-  const flags = await getFlags()
+export default async function SidebarControlPage() {
+  const sections = await getSidebarSections()
 
   return (
     <div className="flex flex-col gap-4 px-4 lg:px-6">
       <Card>
         <CardHeader>
-          <CardTitle>Feature Visibility</CardTitle>
-          <CardDescription>Control which features are visible on the ChainLinked platform</CardDescription>
+          <CardTitle>Sidebar Control</CardTitle>
+          <CardDescription>
+            Manage which sections appear in the ChainLinked platform sidebar. Toggle visibility and drag to reorder.
+          </CardDescription>
         </CardHeader>
-        <FlagsManager initialFlags={flags} />
+        <SidebarSectionsManager initialSections={sections} />
       </Card>
     </div>
   )

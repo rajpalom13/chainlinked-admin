@@ -23,8 +23,9 @@ export async function PUT(
 
   const updates: Record<string, unknown> = {}
   if (typeof body.enabled === "boolean") updates.enabled = body.enabled
+  if (typeof body.sort_order === "number") updates.sort_order = body.sort_order
+  if (typeof body.label === "string") updates.label = body.label
   if (typeof body.description === "string") updates.description = body.description
-  if (typeof body.name === "string") updates.name = body.name
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
@@ -33,8 +34,10 @@ export async function PUT(
     )
   }
 
+  updates.updated_at = new Date().toISOString()
+
   const { error } = await supabaseAdmin
-    .from("feature_flags")
+    .from("sidebar_sections")
     .update(updates)
     .eq("id", id)
 
@@ -42,7 +45,7 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  auditLog("flag.update", { adminId: admin.sub, flagId: id, updates })
+  auditLog("sidebar_section.update", { adminId: admin.sub, sectionId: id, updates })
 
   return NextResponse.json({ success: true })
 }
@@ -59,7 +62,7 @@ export async function DELETE(
   const { id } = await params
 
   const { error } = await supabaseAdmin
-    .from("feature_flags")
+    .from("sidebar_sections")
     .delete()
     .eq("id", id)
 
@@ -67,7 +70,7 @@ export async function DELETE(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  auditLog("flag.delete", { adminId: admin.sub, flagId: id })
+  auditLog("sidebar_section.delete", { adminId: admin.sub, sectionId: id })
 
   return NextResponse.json({ success: true })
 }

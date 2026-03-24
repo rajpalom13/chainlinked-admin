@@ -16,19 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Separator } from "@/components/ui/separator"
-
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "openai/gpt-4.1": { input: 0.000002, output: 0.000008 },
-  "openai/gpt-4.1-2025-04-14": { input: 0.000002, output: 0.000008 },
-  "openai/gpt-4o": { input: 0.0000025, output: 0.00001 },
-}
-const DEFAULT_PRICING = { input: 0.000002, output: 0.000008 }
-
-function computeCost(inputTokens: number, outputTokens: number, model: string): number {
-  const p = MODEL_PRICING[model] || DEFAULT_PRICING
-  return inputTokens * p.input + outputTokens * p.output
-}
+import {
+  DailyCostChart,
+  CostByModelChart,
+  DailyTokenChart,
+  UsageByFeatureChart,
+  UserFeatureHeatmap,
+} from "@/components/charts/ai-performance-charts"
 
 function formatTime(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
@@ -85,7 +79,7 @@ export default async function AIPerformancePage() {
     logsByPromptType[pt].push(log)
   }
 
-  // Build prompt stats
+  // Build prompt stats — use actual estimated_cost
   const promptStats: PromptStat[] = allPrompts.map((prompt) => {
     const logs = logsByPromptType[prompt.type] ?? []
     const calls = logs.length
@@ -108,10 +102,7 @@ export default async function AIPerformancePage() {
     const totalInput = logs.reduce((s, l) => s + (l.input_tokens || 0), 0)
     const totalOutput = logs.reduce((s, l) => s + (l.output_tokens || 0), 0)
     const totalTime = logs.reduce((s, l) => s + (l.response_time_ms || 0), 0)
-    const totalCost = logs.reduce(
-      (s, l) => s + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""),
-      0,
-    )
+    const totalCost = logs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
     const successCount = logs.filter((l) => l.success === true).length
 
     return {
@@ -148,14 +139,13 @@ export default async function AIPerformancePage() {
     },
   ]
 
-  // Add any uncategorized prompts
   const categorizedTypes = new Set(categories.flatMap((c) => c.prompts.map((p) => p.type)))
   const uncategorized = promptStats.filter((p) => !categorizedTypes.has(p.type))
   if (uncategorized.length > 0) {
     categories.push({ label: "Other", prompts: uncategorized })
   }
 
-  // ---- Section 2: Model Comparison ----
+  // ---- Model Comparison (use actual estimated_cost) ----
   const modelMap: Record<
     string,
     {
@@ -174,26 +164,20 @@ export default async function AIPerformancePage() {
     modelMap[model].calls += 1
     modelMap[model].totalTime += log.response_time_ms || 0
     modelMap[model].totalTokens += (log.input_tokens || 0) + (log.output_tokens || 0)
-    modelMap[model].totalCost += computeCost(log.input_tokens || 0, log.output_tokens || 0, model)
+    modelMap[model].totalCost += log.estimated_cost || 0
     if (log.feature) modelMap[model].features.add(log.feature)
   }
   const modelEntries = Object.entries(modelMap).sort((a, b) => b[1].totalCost - a[1].totalCost)
 
-  // ---- Section 3: Cost Summary ----
-  const totalSpend = allLogs.reduce(
-    (s, l) => s + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""),
-    0,
-  )
+  // ---- Cost Summary (use actual estimated_cost) ----
+  const totalSpend = allLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const weekLogs = allLogs.filter((l) => new Date(l.created_at) >= weekAgo)
-  const costThisWeek = weekLogs.reduce(
-    (s, l) => s + computeCost(l.input_tokens || 0, l.output_tokens || 0, l.model || ""),
-    0,
-  )
+  const costThisWeek = weekLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
   const avgCostPerRequest = allLogs.length > 0 ? totalSpend / allLogs.length : 0
 
-  // ---- Section 4: Output Quality ----
+  // ---- Output Quality ----
   const scores = allPosts.map((post) => scoreContent(post.content || ""))
   const lowCount = scores.filter((s) => s.total <= 40).length
   const medCount = scores.filter((s) => s.total > 40 && s.total <= 70).length
@@ -203,12 +187,93 @@ export default async function AIPerformancePage() {
   const medPct = totalPosts > 0 ? ((medCount / totalPosts) * 100).toFixed(1) : "0"
   const highPct = totalPosts > 0 ? ((highCount / totalPosts) * 100).toFixed(1) : "0"
 
-  // Quality by source (feature)
-  const qualityBySource: Record<string, { total: number; count: number }> = {}
-  // We need to correlate posts with features from logs — use a simple approach:
-  // Score all posts and compute overall avg, plus track by unique features in logs
   const featureSet = new Set(allLogs.map((l) => l.feature).filter(Boolean))
   const avgQuality = totalPosts > 0 ? scores.reduce((s, sc) => s + sc.total, 0) / totalPosts : 0
+
+  // ---- Chart Data: Daily cost (last 30 days) ----
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const dailyCostMap: Record<string, number> = {}
+  const dailyTokenMap: Record<string, { input: number; output: number }> = {}
+
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000)
+    const key = d.toISOString().split("T")[0]
+    dailyCostMap[key] = 0
+    dailyTokenMap[key] = { input: 0, output: 0 }
+  }
+
+  for (const log of allLogs) {
+    const dateKey = new Date(log.created_at).toISOString().split("T")[0]
+    if (dailyCostMap[dateKey] !== undefined) {
+      dailyCostMap[dateKey] += log.estimated_cost || 0
+    }
+    if (dailyTokenMap[dateKey]) {
+      dailyTokenMap[dateKey].input += log.input_tokens || 0
+      dailyTokenMap[dateKey].output += log.output_tokens || 0
+    }
+  }
+
+  const dailyCostData = Object.entries(dailyCostMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, cost]) => ({
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      cost,
+    }))
+
+  const dailyTokenData = Object.entries(dailyTokenMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, tokens]) => ({
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      input: tokens.input,
+      output: tokens.output,
+    }))
+
+  // ---- Chart Data: Cost by model ----
+  const costByModelData = modelEntries.map(([model, stats]) => ({
+    model: model.split("/").pop() || model,
+    cost: stats.totalCost,
+  }))
+
+  // ---- Chart Data: Usage by feature ----
+  const featureCountMap: Record<string, number> = {}
+  for (const log of allLogs) {
+    const f = log.feature ?? "unknown"
+    featureCountMap[f] = (featureCountMap[f] ?? 0) + 1
+  }
+  const usageByFeatureData = Object.entries(featureCountMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([feature, count]) => ({ feature, count }))
+
+  // ---- Heatmap Data: Per-user feature matrix ----
+  const profileMap = new Map<string, string>()
+  for (const p of profiles ?? []) {
+    profileMap.set(p.id, p.full_name || p.email || p.id.slice(0, 8))
+  }
+
+  const userFeatureMatrix: Record<string, Record<string, number>> = {}
+  const allFeatures = Array.from(featureSet).sort()
+  const userIdsWithUsage = new Set<string>()
+
+  for (const log of allLogs) {
+    const uid = log.user_id
+    const feature = log.feature
+    if (!uid || !feature) continue
+    userIdsWithUsage.add(uid)
+    if (!userFeatureMatrix[uid]) userFeatureMatrix[uid] = {}
+    userFeatureMatrix[uid][feature] = (userFeatureMatrix[uid][feature] ?? 0) + 1
+  }
+
+  let heatmapMaxCount = 0
+  for (const uid of userIdsWithUsage) {
+    for (const f of allFeatures) {
+      const c = userFeatureMatrix[uid]?.[f] ?? 0
+      if (c > heatmapMaxCount) heatmapMaxCount = c
+    }
+  }
+
+  const heatmapUsers = Array.from(userIdsWithUsage)
+    .map((uid) => ({ id: uid, name: profileMap.get(uid) || uid.slice(0, 8) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="space-y-8 px-4 lg:px-6">
@@ -219,7 +284,49 @@ export default async function AIPerformancePage() {
         </p>
       </div>
 
-      {/* Section 1: Prompt Performance */}
+      {/* Section: Cost Summary */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Cost Summary</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            title="Total AI Spend"
+            value={`$${totalSpend.toFixed(4)}`}
+            subtitle="All time"
+          />
+          <MetricCard
+            title="Cost This Week"
+            value={`$${costThisWeek.toFixed(4)}`}
+            subtitle="Last 7 days"
+          />
+          <MetricCard
+            title="Avg Cost Per Request"
+            value={`$${avgCostPerRequest.toFixed(6)}`}
+            subtitle={`${allLogs.length} total requests`}
+          />
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DailyCostChart data={dailyCostData} />
+        <CostByModelChart data={costByModelData} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DailyTokenChart data={dailyTokenData} />
+        <UsageByFeatureChart data={usageByFeatureData} />
+      </div>
+
+      {/* Per-User Feature Heatmap */}
+      {allFeatures.length > 0 && heatmapUsers.length > 0 && (
+        <UserFeatureHeatmap
+          users={heatmapUsers}
+          features={allFeatures}
+          matrix={userFeatureMatrix}
+          maxCount={heatmapMaxCount}
+        />
+      )}
+
+      {/* Section: Prompt Performance */}
       <div className="space-y-6">
         <h2 className="text-lg font-semibold">Prompt Performance</h2>
         {categories
@@ -292,7 +399,7 @@ export default async function AIPerformancePage() {
           ))}
       </div>
 
-      {/* Section 2: Model Comparison */}
+      {/* Section: Model Comparison */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Model Comparison</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -346,29 +453,7 @@ export default async function AIPerformancePage() {
         </div>
       </div>
 
-      {/* Section 3: Cost Summary */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Cost Summary</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <MetricCard
-            title="Total AI Spend"
-            value={`$${totalSpend.toFixed(4)}`}
-            subtitle="All time"
-          />
-          <MetricCard
-            title="Cost This Week"
-            value={`$${costThisWeek.toFixed(4)}`}
-            subtitle="Last 7 days"
-          />
-          <MetricCard
-            title="Avg Cost Per Request"
-            value={`$${avgCostPerRequest.toFixed(6)}`}
-            subtitle={`${allLogs.length} total requests`}
-          />
-        </div>
-      </div>
-
-      {/* Section 4: Quality Distribution */}
+      {/* Section: Quality Distribution */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Output Quality Distribution</h2>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -399,7 +484,6 @@ export default async function AIPerformancePage() {
                 <span className="font-medium tabular-nums">{avgQuality.toFixed(1)}</span>
               </li>
               {Array.from(featureSet).map((feature) => {
-                // For per-feature quality, we use overall average since posts aren't directly linked to features
                 return (
                   <li key={feature} className="flex items-center justify-between">
                     <span className="text-muted-foreground">{feature}</span>
