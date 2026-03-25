@@ -57,7 +57,7 @@ export function FeatureAdoptionChart({ data }: FeatureAdoptionChartProps) {
               />
               <Tooltip
                 formatter={(value) => [
-                  `${Number(value).toLocaleString()} records`,
+                  `${Number(value).toLocaleString("en-US")} records`,
                   "Adoption",
                 ]}
                 contentStyle={{

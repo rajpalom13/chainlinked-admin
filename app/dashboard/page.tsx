@@ -121,7 +121,7 @@ async function getRecentActivity() {
     items.push({
       type: "scheduled",
       id: s.id,
-      description: `Post ${s.status} for ${new Date(s.scheduled_for).toLocaleDateString()}`,
+      description: `Post ${s.status} for ${new Date(s.scheduled_for).toLocaleDateString("en-US")}`,
       timestamp: s.created_at,
     })
   )
@@ -184,7 +184,7 @@ export default async function DashboardPage() {
         />
         <MetricCard
           title="Token Usage"
-          value={metrics.totalTokens.toLocaleString()}
+          value={metrics.totalTokens.toLocaleString("en-US")}
           subtitle={`Est. cost: $${metrics.totalCost.toFixed(2)}`}
         />
         <MetricCard
@@ -210,7 +210,7 @@ export default async function DashboardPage() {
                 >
                   <span>{item.description}</span>
                   <span className="text-muted-foreground">
-                    {new Date(item.timestamp).toLocaleDateString()}
+                    {new Date(item.timestamp).toLocaleDateString("en-US")}
                   </span>
                 </div>
               ))}

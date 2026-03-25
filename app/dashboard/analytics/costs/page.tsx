@@ -210,7 +210,7 @@ export default async function CostDashboardPage() {
                         ${stats.cost.toFixed(4)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {stats.requests.toLocaleString()}
+                        {stats.requests.toLocaleString("en-US")}
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-mono">
                         ${stats.requests > 0 ? (stats.cost / stats.requests).toFixed(6) : "0"}

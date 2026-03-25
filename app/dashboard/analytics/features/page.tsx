@@ -125,7 +125,7 @@ export default async function FeaturesAnalyticsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{f.label}</span>
                   <span className="tabular-nums text-muted-foreground">
-                    {f.count.toLocaleString()} records &middot; {f.users.size} user{f.users.size !== 1 ? "s" : ""}
+                    {f.count.toLocaleString("en-US")} records &middot; {f.users.size} user{f.users.size !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted">

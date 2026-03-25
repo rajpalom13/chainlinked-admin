@@ -368,12 +368,12 @@ export default async function AIPerformancePage() {
                         <TableCell
                           className={`text-right tabular-nums ${p.calls === 0 ? "text-muted-foreground" : ""}`}
                         >
-                          {p.calls === 0 ? "-" : p.avgInputTokens.toLocaleString()}
+                          {p.calls === 0 ? "-" : p.avgInputTokens.toLocaleString("en-US")}
                         </TableCell>
                         <TableCell
                           className={`text-right tabular-nums ${p.calls === 0 ? "text-muted-foreground" : ""}`}
                         >
-                          {p.calls === 0 ? "-" : p.avgOutputTokens.toLocaleString()}
+                          {p.calls === 0 ? "-" : p.avgOutputTokens.toLocaleString("en-US")}
                         </TableCell>
                         <TableCell
                           className={`text-right tabular-nums ${p.calls === 0 ? "text-muted-foreground" : ""}`}
@@ -424,7 +424,7 @@ export default async function AIPerformancePage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Avg Tokens:</span>{" "}
-                      {avgTokens.toLocaleString()}
+                      {avgTokens.toLocaleString("en-US")}
                     </div>
                     <div>
                       <span className="text-muted-foreground">Total Cost:</span> $

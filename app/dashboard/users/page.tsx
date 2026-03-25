@@ -98,7 +98,7 @@ export default async function UsersPage() {
               </TableCell>
               <TableCell>{user.email}</TableCell>
               <TableCell>
-                {new Date(user.created_at).toLocaleDateString()}
+                {new Date(user.created_at).toLocaleDateString("en-US")}
               </TableCell>
               <TableCell>
                 <Badge variant={user.onboarding_completed ? "default" : "secondary"}>

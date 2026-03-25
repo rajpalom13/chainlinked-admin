@@ -162,7 +162,7 @@ export default async function TokensAnalyticsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           title="Total Tokens"
-          value={totalTokens.toLocaleString()}
+          value={totalTokens.toLocaleString("en-US")}
           subtitle="All time"
         />
         <MetricCard
@@ -182,7 +182,7 @@ export default async function TokensAnalyticsPage() {
         />
         <MetricCard
           title="Tokens This Week"
-          value={tokensThisWeek.toLocaleString()}
+          value={tokensThisWeek.toLocaleString("en-US")}
           subtitle="Last 7 days"
         />
         <MetricCard
@@ -274,19 +274,19 @@ export default async function TokensAnalyticsPage() {
                   <TableRow key={row.id}>
                     <TableCell className="font-medium">{row.name}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {row.tokens.toLocaleString()}
+                      {row.tokens.toLocaleString("en-US")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       ${row.cost.toFixed(4)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {row.requests.toLocaleString()}
+                      {row.requests.toLocaleString("en-US")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {row.avgTokens.toLocaleString()}
+                      {row.avgTokens.toLocaleString("en-US")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {new Date(row.lastUsed).toLocaleDateString()}
+                      {new Date(row.lastUsed).toLocaleDateString("en-US")}
                     </TableCell>
                   </TableRow>
                 ))

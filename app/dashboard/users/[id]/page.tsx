@@ -121,12 +121,12 @@ export default async function UserDetailPage({
               </Badge>
               {profile.extension_last_active_at && (
                 <Badge variant="outline">
-                  Extension active: {new Date(profile.extension_last_active_at).toLocaleDateString()}
+                  Extension active: {new Date(profile.extension_last_active_at).toLocaleDateString("en-US")}
                 </Badge>
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Signed up {new Date(profile.created_at).toLocaleDateString()}
+              Signed up {new Date(profile.created_at).toLocaleDateString("en-US")}
             </p>
           </div>
           <UserActions userId={profile.id} userName={profile.full_name || profile.email} />
@@ -140,7 +140,7 @@ export default async function UserDetailPage({
         <MetricCard title="Templates" value={templatesCount} />
         <MetricCard
           title="Token Usage"
-          value={totalTokens.toLocaleString()}
+          value={totalTokens.toLocaleString("en-US")}
           subtitle={`Est. cost: $${totalCost.toFixed(2)}`}
         />
       </div>
@@ -176,7 +176,7 @@ export default async function UserDetailPage({
                     <TableCell>{post.status ?? "-"}</TableCell>
                     <TableCell>{post.word_count ?? "-"}</TableCell>
                     <TableCell>
-                      {new Date(post.created_at).toLocaleDateString()}
+                      {new Date(post.created_at).toLocaleDateString("en-US")}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -212,10 +212,10 @@ export default async function UserDetailPage({
                       <Badge variant="outline">{post.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(post.scheduled_for).toLocaleDateString()}
+                      {new Date(post.scheduled_for).toLocaleDateString("en-US")}
                     </TableCell>
                     <TableCell>
-                      {new Date(post.created_at).toLocaleDateString()}
+                      {new Date(post.created_at).toLocaleDateString("en-US")}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -30,7 +30,7 @@ export function MetricCard({ title, value, change, subtitle }: MetricCardProps) 
       <CardHeader>
         <CardDescription>{title}</CardDescription>
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-          {typeof value === "number" ? value.toLocaleString() : value}
+          {typeof value === "number" ? value.toLocaleString("en-US") : value}
         </CardTitle>
         {change !== undefined && (
           <CardAction>

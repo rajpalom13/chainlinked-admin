@@ -50,7 +50,7 @@ function formatRelativeTime(dateStr: string): string {
   const days = Math.floor(hours / 24)
   if (days < 30) return `${days}d ago`
 
-  return date.toLocaleDateString()
+  return date.toLocaleDateString("en-US")
 }
 
 function getLevelBadgeVariant(level: string) {
@@ -233,10 +233,10 @@ export function SentryErrorsViewer() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {Number(issue.count).toLocaleString()}
+                      {Number(issue.count).toLocaleString("en-US")}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">
-                      {(issue.userCount || 0).toLocaleString()}
+                      {(issue.userCount || 0).toLocaleString("en-US")}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getLevelBadgeVariant(issue.level)}>

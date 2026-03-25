@@ -127,11 +127,11 @@ export default async function JobsPage() {
                     {job.error_message ?? "-"}
                   </TableCell>
                   <TableCell>
-                    {new Date(job.created_at).toLocaleDateString()}
+                    {new Date(job.created_at).toLocaleDateString("en-US")}
                   </TableCell>
                   <TableCell>
                     {job.completed_at
-                      ? new Date(job.completed_at).toLocaleDateString()
+                      ? new Date(job.completed_at).toLocaleDateString("en-US")
                       : "-"}
                   </TableCell>
                 </TableRow>
@@ -176,11 +176,11 @@ export default async function JobsPage() {
                     {job.error_message ?? "-"}
                   </TableCell>
                   <TableCell>
-                    {new Date(job.created_at).toLocaleDateString()}
+                    {new Date(job.created_at).toLocaleDateString("en-US")}
                   </TableCell>
                   <TableCell>
                     {job.completed_at
-                      ? new Date(job.completed_at).toLocaleDateString()
+                      ? new Date(job.completed_at).toLocaleDateString("en-US")
                       : "-"}
                   </TableCell>
                 </TableRow>
@@ -219,11 +219,11 @@ export default async function JobsPage() {
                     {job.error_message ?? "-"}
                   </TableCell>
                   <TableCell>
-                    {new Date(job.created_at).toLocaleDateString()}
+                    {new Date(job.created_at).toLocaleDateString("en-US")}
                   </TableCell>
                   <TableCell>
                     {job.completed_at
-                      ? new Date(job.completed_at).toLocaleDateString()
+                      ? new Date(job.completed_at).toLocaleDateString("en-US")
                       : "-"}
                   </TableCell>
                 </TableRow>

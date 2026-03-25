@@ -158,7 +158,7 @@ export function DailyTokenChart({ data }: DailyTokenChartProps) {
               />
               <Tooltip
                 formatter={(value, name) => [
-                  Number(value).toLocaleString(),
+                  Number(value).toLocaleString("en-US"),
                   name === "input" ? "Input Tokens" : "Output Tokens",
                 ]}
                 contentStyle={{
@@ -212,7 +212,7 @@ export function UsageByFeatureChart({ data }: UsageByFeatureChartProps) {
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value, name) => [Number(value).toLocaleString(), String(name)]}
+                formatter={(value, name) => [Number(value).toLocaleString("en-US"), String(name)]}
                 contentStyle={{
                   backgroundColor: "hsl(var(--background))",
                   border: "1px solid hsl(var(--border))",

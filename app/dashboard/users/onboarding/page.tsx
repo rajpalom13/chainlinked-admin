@@ -69,7 +69,7 @@ export default async function OnboardingFunnelPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{step.label}</span>
                   <span className="text-muted-foreground">
-                    {step.count.toLocaleString()} ({step.pct}%)
+                    {step.count.toLocaleString("en-US")} ({step.pct}%)
                   </span>
                 </div>
                 <div className="h-8 w-full rounded-md bg-muted overflow-hidden">
