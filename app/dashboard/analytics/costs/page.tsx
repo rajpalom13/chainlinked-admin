@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/client"
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -13,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { DollarSignIcon, CalendarDaysIcon, CalendarIcon, ClockIcon } from "lucide-react"
 import {
   CostDailyLineChart,
   CostByModelBarChart,
@@ -80,7 +82,9 @@ export default async function CostDashboardPage() {
   // ---- Cost by model ----
   const costByModel: Record<string, number> = {}
   for (const l of allLogs) {
-    const model = (l.model ?? "unknown").split("/").pop() || l.model || "unknown"
+    let model = (l.model ?? "unknown").split("/").pop() || l.model || "unknown"
+    // Shorten long model names for chart readability
+    model = model.replace("-2025-04-14", "").replace("openai/", "")
     costByModel[model] = (costByModel[model] ?? 0) + (l.estimated_cost || 0)
   }
   const costByModelData = Object.entries(costByModel)
@@ -100,7 +104,7 @@ export default async function CostDashboardPage() {
   // ---- Cost by user ----
   const costByUser: Record<string, { cost: number; requests: number }> = {}
   for (const l of allLogs) {
-    const uid = l.user_id
+    const uid = l.user_id || "unknown"
     if (!costByUser[uid]) costByUser[uid] = { cost: 0, requests: 0 }
     costByUser[uid].cost += l.estimated_cost || 0
     costByUser[uid].requests += 1
@@ -153,86 +157,43 @@ export default async function CostDashboardPage() {
 
   return (
     <div className="space-y-6 px-4 lg:px-6">
-      {/* Page Header */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight">Cost Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1.5">
-          Track spending across models, features, and time periods.
+      <div>
+        <h1 className="text-2xl font-semibold">Cost Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          AI spending analysis across models, features, and users
         </p>
       </div>
 
-      {/* Cost Summary Banner */}
-      <Card className="rounded-xl border">
-        <CardContent className="p-0">
-          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-border">
-            {/* Total Cost */}
-            <div className="p-5 lg:p-6">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Total Cost
-              </p>
-              <p className="text-2xl lg:text-3xl font-semibold tabular-nums text-primary mt-1">
-                ${totalSpend.toFixed(4)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">All time</p>
-            </div>
-
-            {/* This Month */}
-            <div className="p-5 lg:p-6">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                This Month
-              </p>
-              <p className="text-2xl lg:text-3xl font-semibold tabular-nums mt-1">
-                ${monthSpend.toFixed(4)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {startOfMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-              </p>
-            </div>
-
-            {/* Per Request */}
-            <div className="p-5 lg:p-6">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Per Request
-              </p>
-              <p className="text-2xl lg:text-3xl font-semibold tabular-nums mt-1">
-                ${avgPerRequest.toFixed(6)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Average cost</p>
-            </div>
-
-            {/* Total Requests */}
-            <div className="p-5 lg:p-6">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Total Requests
-              </p>
-              <p className="text-2xl lg:text-3xl font-semibold tabular-nums mt-1">
-                {totalRequests.toLocaleString("en-US")}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">All time</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Current Period Info Banner */}
-      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="h-4 w-4 shrink-0 opacity-60"
-        >
-          <path
-            fillRule="evenodd"
-            d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
-            clipRule="evenodd"
-          />
-        </svg>
-        <span>
-          Current period: <span className="font-medium text-foreground">{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
-          {" "}&middot; Today&apos;s spend: <span className="font-medium text-foreground">${todaySpend.toFixed(4)}</span>
-          {" "}&middot; This week: <span className="font-medium text-foreground">${weekSpend.toFixed(4)}</span>
-        </span>
+      {/* Summary Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total AI Spend"
+          value={`$${totalSpend.toFixed(4)}`}
+          subtitle="All time"
+          icon={DollarSignIcon}
+          accent="primary"
+        />
+        <MetricCard
+          title="This Month"
+          value={`$${monthSpend.toFixed(4)}`}
+          subtitle={startOfMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          icon={CalendarDaysIcon}
+          accent="blue"
+        />
+        <MetricCard
+          title="This Week"
+          value={`$${weekSpend.toFixed(4)}`}
+          subtitle="Last 7 days"
+          icon={CalendarIcon}
+          accent="amber"
+        />
+        <MetricCard
+          title="Today"
+          value={`$${todaySpend.toFixed(4)}`}
+          subtitle={now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+          icon={ClockIcon}
+          accent="emerald"
+        />
       </div>
 
       {/* Daily Cost Chart */}
@@ -251,11 +212,13 @@ export default async function CostDashboardPage() {
       </div>
 
       {/* Cost by User */}
-      <Card className="rounded-xl border">
+      <Card className="border-border/50 bg-gradient-to-br from-card via-card to-primary/3 overflow-hidden">
         <CardHeader>
           <CardTitle>Top Users by Cost</CardTitle>
+          <CardDescription>{userCostRows.length} users with AI usage</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="rounded-lg border border-border/50 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -268,7 +231,7 @@ export default async function CostDashboardPage() {
             </TableHeader>
             <TableBody>
               {userCostRows.length === 0 ? (
-                <TableRow>
+                <TableRow className="hover:bg-muted/30 transition-colors">
                   <TableCell colSpan={5} className="text-center text-muted-foreground">
                     No cost data
                   </TableCell>
@@ -277,9 +240,9 @@ export default async function CostDashboardPage() {
                 userCostRows.map(([uid, stats]) => {
                   const pct = (stats.cost / maxUserCost) * 100
                   return (
-                    <TableRow key={uid}>
+                    <TableRow key={uid} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">
-                        {profileMap.get(uid) || uid.slice(0, 8)}
+                        {profileMap.get(uid) || (uid === "unknown" || uid === "null" || !uid ? "Unknown" : uid.slice(0, 8))}
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-mono">
                         ${stats.cost.toFixed(4)}
@@ -304,6 +267,7 @@ export default async function CostDashboardPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

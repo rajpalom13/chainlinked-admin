@@ -1,61 +1,94 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { MoonIcon, SunIcon } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Moon, Sun } from "lucide-react"
+import { flushSync } from "react-dom"
+import { Button } from "@/components/ui/button"
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false)
-  const [ripple, setRipple] = useState(false)
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const [isDark, setIsDark] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"))
-  }, [])
+    setMounted(true)
+    setIsDark(document.documentElement.classList.contains("dark"))
 
-  function toggle() {
-    const next = !dark
-
-    // Start ripple animation
-    setRipple(true)
-
-    // Apply theme change at the midpoint of animation
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        setDark(next)
-        document.documentElement.classList.toggle("dark", next)
-        localStorage.setItem("theme", next ? "dark" : "light")
-      }, 200)
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"))
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
     })
 
-    // End ripple
-    setTimeout(() => setRipple(false), 600)
-  }
+    return () => observer.disconnect()
+  }, [])
+
+  const toggleTheme = useCallback(async () => {
+    if (!buttonRef.current) return
+
+    const supportsViewTransition = "startViewTransition" in document
+
+    if (!supportsViewTransition) {
+      // Fallback: just toggle without animation
+      const newTheme = !isDark
+      setIsDark(newTheme)
+      document.documentElement.classList.toggle("dark")
+      localStorage.setItem("theme", newTheme ? "dark" : "light")
+      return
+    }
+
+    // Animated transition: circular clip-path spreading from button
+    await (document as any).startViewTransition(() => {
+      flushSync(() => {
+        const newTheme = !isDark
+        setIsDark(newTheme)
+        document.documentElement.classList.toggle("dark")
+        localStorage.setItem("theme", newTheme ? "dark" : "light")
+      })
+    }).ready
+
+    const { top, left, width, height } =
+      buttonRef.current.getBoundingClientRect()
+    const x = left + width / 2
+    const y = top + height / 2
+    const maxRadius = Math.hypot(
+      Math.max(left, window.innerWidth - left),
+      Math.max(top, window.innerHeight - top)
+    )
+
+    document.documentElement.animate(
+      {
+        clipPath: [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${maxRadius}px at ${x}px ${y}px)`,
+        ],
+      },
+      {
+        duration: 500,
+        easing: "ease-in-out",
+        pseudoElement: "::view-transition-new(root)",
+      }
+    )
+  }, [isDark])
+
+  if (!mounted) return null
 
   return (
-    <>
-      {/* Ripple overlay */}
-      {ripple && (
-        <div
-          className="fixed inset-0 z-[9999] pointer-events-none"
-          style={{
-            background: dark ? "var(--background)" : "oklch(0.15 0.01 90)",
-            animation: "themeRipple 600ms ease-out forwards",
-            transformOrigin: btnRef.current
-              ? `${btnRef.current.getBoundingClientRect().left + btnRef.current.getBoundingClientRect().width / 2}px ${btnRef.current.getBoundingClientRect().top + btnRef.current.getBoundingClientRect().height / 2}px`
-              : "top right",
-          }}
-        />
+    <Button
+      ref={buttonRef}
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      className="size-8 rounded-lg"
+    >
+      {isDark ? (
+        <Sun className="size-4 text-amber-500" />
+      ) : (
+        <Moon className="size-4 text-muted-foreground" />
       )}
-
-      <button
-        ref={btnRef}
-        onClick={toggle}
-        className="relative flex size-8 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        title={dark ? "Switch to light mode" : "Switch to dark mode"}
-      >
-        <SunIcon className={`size-4 absolute transition-all duration-300 ${dark ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-0 opacity-0"}`} />
-        <MoonIcon className={`size-4 absolute transition-all duration-300 ${dark ? "-rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100"}`} />
-      </button>
-    </>
+      <span className="sr-only">Toggle theme</span>
+    </Button>
   )
 }

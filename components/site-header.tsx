@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-const pageLabelMap: Record<string, string> = {
+const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/users": "All Users",
   "/dashboard/users/onboarding": "Onboarding Funnel",
@@ -16,42 +16,26 @@ const pageLabelMap: Record<string, string> = {
   "/dashboard/analytics/ai-performance": "AI Performance",
   "/dashboard/analytics/tokens": "Token Usage",
   "/dashboard/analytics/features": "Feature Usage",
-  "/dashboard/analytics/posthog": "PostHog",
-  "/dashboard/analytics/costs": "Costs",
+  "/dashboard/analytics/linkedin": "LinkedIn Engagement",
+  "/dashboard/analytics/posthog": "PostHog Analytics",
+  "/dashboard/analytics/costs": "Cost Dashboard",
   "/dashboard/system/jobs": "Background Jobs",
   "/dashboard/system/flags": "Sidebar Control",
-  "/dashboard/system/errors": "Errors",
+  "/dashboard/system/errors": "Platform Errors",
   "/dashboard/settings": "Settings",
 }
 
-const sectionLabelMap: Record<string, string> = {
-  users: "Users",
-  content: "Content",
-  analytics: "Analytics",
-  system: "System",
-  settings: "Settings",
-}
-
-function getBreadcrumb(pathname: string): string {
-  const label = pageLabelMap[pathname]
-  if (!label) return "Dashboard"
-
-  // For top-level routes like /dashboard or /dashboard/settings, no section prefix
-  const segments = pathname.replace(/^\/dashboard\/?/, "").split("/")
-  if (segments.length <= 1) return label
-
-  const sectionKey = segments[0]
-  const sectionLabel = sectionLabelMap[sectionKey]
-  if (sectionLabel) {
-    return `${sectionLabel} / ${label}`
+function getPageTitle(pathname: string): string {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
+  if (pathname.startsWith("/dashboard/users/") && pathname !== "/dashboard/users/onboarding") {
+    return "User Details"
   }
-
-  return label
+  return "Dashboard"
 }
 
 export function SiteHeader() {
   const pathname = usePathname()
-  const breadcrumb = getBreadcrumb(pathname)
+  const title = getPageTitle(pathname)
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -61,8 +45,10 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium flex-1">{breadcrumb}</h1>
-        <ThemeToggle />
+        <h1 className="text-base font-medium">{title}</h1>
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )

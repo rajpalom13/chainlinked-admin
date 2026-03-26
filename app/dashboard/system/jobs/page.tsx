@@ -1,7 +1,27 @@
 import { supabaseAdmin } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircleIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react"
-import { JobsTabs } from "./jobs-tabs"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
+  LoaderIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  LayersIcon,
+  ServerIcon,
+} from "lucide-react"
 
 const RUNNING_STATUSES = ["pending", "scraping", "researching", "analyzing"]
 
@@ -63,169 +83,187 @@ export default async function JobsPage() {
   const dateFmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 
   return (
-    <div className="px-4 lg:px-6">
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight">Background Jobs</h1>
-        <p className="text-sm text-muted-foreground mt-1.5">Monitor background processing tasks</p>
+    <div className="flex flex-col gap-4 px-4 lg:px-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Background Jobs</h1>
+        <p className="text-sm text-muted-foreground">Monitor background processing tasks</p>
       </div>
 
-      {/* ── Status Cards ── */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {/* Running */}
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="size-2.5 rounded-full bg-yellow-500 animate-pulse" />
-            <span className="text-2xl font-bold tabular-nums">{running}</span>
-          </div>
-          <p className="text-sm font-medium">Running</p>
-          <p className="text-xs text-muted-foreground tabular-nums mt-0.5">{runPct}% of {total}</p>
-        </div>
-        {/* Completed */}
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <CheckCircle2Icon className="size-4 text-green-500" />
-            <span className="text-2xl font-bold tabular-nums">{completed}</span>
-          </div>
-          <p className="text-sm font-medium">Completed</p>
-          <p className="text-xs text-muted-foreground tabular-nums mt-0.5">{compPct}% of {total}</p>
-        </div>
-        {/* Failed */}
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <XCircleIcon className="size-4 text-red-500" />
-            <span className="text-2xl font-bold tabular-nums">{failed}</span>
-          </div>
-          <p className="text-sm font-medium">Failed</p>
-          <p className="text-xs text-muted-foreground tabular-nums mt-0.5">{failPct}% of {total}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard title="Running" value={running} icon={LoaderIcon} accent="amber" />
+        <MetricCard title="Completed" value={completed} icon={CheckCircleIcon} accent="emerald" />
+        <MetricCard title="Failed" value={failed} icon={AlertTriangleIcon} accent="default" />
+        <MetricCard title="Total" value={total} icon={LayersIcon} accent="primary" />
       </div>
 
-      {/* ── Icon Card Tabs + Content ── */}
-      <JobsTabs
-        tabs={{
-          company: company.length, companyC: cs.completed, companyR: cs.running, companyF: cs.failed,
-          research: research.length, researchC: rs.completed, researchR: rs.running, researchF: rs.failed,
-          suggest: suggestions.length, suggestC: ss.completed, suggestR: ss.running, suggestF: ss.failed,
-        }}
-        companyContent={
-          company.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">No company analysis jobs</p>
-          ) : (
-            <div className="space-y-2">
-              {company.map((job) => (
-                <div key={job.id} className="rounded-xl border bg-card overflow-hidden hover:border-primary/20 transition-colors">
-                  <div className="flex items-center gap-4 p-4">
-                    {/* Company avatar initial */}
-                    <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary text-lg font-bold shrink-0">
-                      {(job.company_name || "?").charAt(0).toUpperCase()}
-                    </div>
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{job.company_name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{names.get(job.user_id) ?? "-"}</p>
-                      <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
-                        {dateFmt(job.created_at)}
-                        {job.completed_at && <> → {dateFmt(job.completed_at)}</>}
-                      </p>
-                    </div>
-                    {/* Status tag on the right */}
-                    <Badge variant="outline" className={`text-xs px-2.5 py-1 shrink-0 ${statusBadgeClass(job.status)}`}>
-                      {job.status}
-                    </Badge>
-                  </div>
-                  {job.error_message && (
-                    <div className="flex items-start gap-1.5 border-t bg-red-50 dark:bg-red-950/30 px-4 py-2.5 text-xs text-red-700 dark:text-red-400">
-                      <AlertCircleIcon className="size-3.5 shrink-0 mt-0.5" />
-                      <span>{job.error_message}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+      <Card className="group/card relative overflow-hidden border-border/50 bg-gradient-to-br from-card via-card to-primary/3 transition-all duration-300 card-glow">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/3 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100 pointer-events-none" />
+        <CardContent className="relative pt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/10">
+              <ServerIcon className="size-5 text-primary" />
             </div>
-          )
-        }
-        researchContent={
-          research.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">No research sessions</p>
-          ) : (
-            <div className="space-y-2">
-              {research.map((job) => (
-                <div key={job.id} className="rounded-xl border bg-card p-4 hover:border-primary/20 transition-colors">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`size-3 rounded-full mt-1 shrink-0 ${statusColor(job.status)}`} />
-                      <div>
-                        <p className="text-sm font-semibold">{Array.isArray(job.topics) ? job.topics.join(", ") : "No topics"}</p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{names.get(job.user_id) ?? "-"}</span>
-                          <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${statusBadgeClass(job.status)}`}>{job.status}</Badge>
-                          <span className="tabular-nums">{job.posts_discovered ?? 0} discovered</span>
-                          <span className="tabular-nums">{job.posts_generated ?? 0} generated</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-muted-foreground tabular-nums shrink-0">
-                      <p>{dateFmt(job.created_at)}</p>
-                      {job.completed_at && <p className="mt-0.5">&rarr; {dateFmt(job.completed_at)}</p>}
-                    </div>
-                  </div>
-                  {job.error_message && (
-                    <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 px-3 py-2 text-xs text-red-700 dark:text-red-400">
-                      <AlertCircleIcon className="size-3.5 shrink-0 mt-0.5" />
-                      <span>{job.error_message}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div>
+              <h3 className="text-base font-medium">Job History</h3>
+              <p className="text-xs text-muted-foreground">Across all job types</p>
             </div>
-          )
-        }
-        suggestContent={
-          suggestions.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">No suggestion runs</p>
-          ) : (
-            <div className="space-y-2">
-              {suggestions.map((job) => {
-                const requested = job.suggestions_requested ?? 0
-                const generated = job.suggestions_generated ?? 0
-                const pct = requested > 0 ? Math.round((generated / requested) * 100) : 0
-                return (
-                  <div key={job.id} className="rounded-xl border bg-card p-4 hover:border-primary/20 transition-colors">
-                    {/* Top: user + status */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{names.get(job.user_id) ?? "-"}</span>
-                        <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${statusBadgeClass(job.status)}`}>{job.status}</Badge>
-                      </div>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {dateFmt(job.created_at)}
-                        {job.completed_at && <> → {dateFmt(job.completed_at)}</>}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 tabular-nums">
-                        {requested} requested
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 tabular-nums">
-                        {generated} generated
-                      </Badge>
-                      <Badge variant={job.status === "completed" ? "default" : "secondary"} className="text-[10px] h-5 px-1.5 tabular-nums">
-                        {pct}%
-                      </Badge>
-                    </div>
-                    {job.error_message && (
-                      <div className="mt-2 flex items-start gap-1.5 border-t pt-2 text-xs text-red-600 dark:text-red-400">
-                        <AlertCircleIcon className="size-3.5 shrink-0 mt-0.5" />
-                        <span>{job.error_message}</span>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )
-        }
-      />
+          </div>
+          <Tabs defaultValue="company">
+            <TabsList>
+              <TabsTrigger value="company">
+                Company Analysis ({company.length})
+              </TabsTrigger>
+              <TabsTrigger value="research">
+                Research Sessions ({research.length})
+              </TabsTrigger>
+              <TabsTrigger value="suggestions">
+                Suggestion Generation ({suggestions.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="company">
+              <div className="rounded-lg border border-border/50 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Company</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Error</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Completed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {company.map((job) => (
+                      <TableRow key={job.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-medium">
+                          {job.company_name}
+                        </TableCell>
+                        <TableCell>
+                          {names.get(job.user_id) ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusVariant(job.status)}>
+                            {job.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {job.error_message ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(job.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {job.completed_at
+                            ? new Date(job.completed_at).toLocaleDateString()
+                            : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="research">
+              <div className="rounded-lg border border-border/50 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Topics</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Discovered</TableHead>
+                      <TableHead>Generated</TableHead>
+                      <TableHead>Error</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Completed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {research.map((job) => (
+                      <TableRow key={job.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="max-w-[200px] truncate font-medium">
+                          {Array.isArray(job.topics)
+                            ? job.topics.join(", ")
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {names.get(job.user_id) ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusVariant(job.status)}>
+                            {job.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{job.posts_discovered ?? 0}</TableCell>
+                        <TableCell>{job.posts_generated ?? 0}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {job.error_message ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(job.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {job.completed_at
+                            ? new Date(job.completed_at).toLocaleDateString()
+                            : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="suggestions">
+              <div className="rounded-lg border border-border/50 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Requested</TableHead>
+                      <TableHead>Generated</TableHead>
+                      <TableHead>Error</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Completed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {suggestions.map((job) => (
+                      <TableRow key={job.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-medium">
+                          {names.get(job.user_id) ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusVariant(job.status)}>
+                            {job.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{job.suggestions_requested ?? 0}</TableCell>
+                        <TableCell>{job.suggestions_generated ?? 0}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {job.error_message ?? "-"}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(job.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {job.completed_at
+                            ? new Date(job.completed_at).toLocaleDateString()
+                            : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -9,12 +9,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="px-4 lg:px-6">
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1.5">
-          Manage your admin account and environment configuration.
-        </p>
+    <div className="flex flex-col gap-4 px-4 lg:px-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        <p className="text-sm text-muted-foreground">Admin account and environment configuration</p>
       </div>
       <SettingsClient envStatus={envStatus} />
     </div>

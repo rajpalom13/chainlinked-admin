@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MetricCard } from "@/components/metric-card"
 import {
   AlertTriangleIcon,
   BugIcon,
@@ -13,6 +15,7 @@ import {
   HashIcon,
   RefreshCwIcon,
   UsersIcon,
+  ShieldAlertIcon,
 } from "lucide-react"
 
 interface SentryIssue {
@@ -49,6 +52,7 @@ function formatRelativeTime(dateStr: string): string {
 
 function getLevelBadgeVariant(level: string) {
   switch (level) {
+    case "error":
     case "fatal":
       return "destructive" as const
     case "error":
@@ -134,179 +138,163 @@ export function SentryErrorsViewer() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Stats pills + Refresh */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          {loading ? (
-            <>
-              <Skeleton className="h-7 w-28 rounded-full" />
-              <Skeleton className="h-7 w-20 rounded-full" />
-              <Skeleton className="h-7 w-24 rounded-full" />
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-1.5 rounded-full bg-destructive/10 px-3 py-1">
-                <BugIcon className="size-3.5 text-destructive" />
-                <span className="text-sm font-semibold tabular-nums">
-                  {totalUnresolved}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  unresolved
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1">
-                <AlertTriangleIcon className="size-3.5 text-orange-500" />
-                <span className="text-sm font-semibold tabular-nums">
-                  {errorsToday}
-                </span>
-                <span className="text-xs text-muted-foreground">today</span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1">
-                <UsersIcon className="size-3.5 text-blue-500" />
-                <span className="text-sm font-semibold tabular-nums">
-                  {affectedUsers}
-                </span>
-                <span className="text-xs text-muted-foreground">users</span>
-              </div>
-            </>
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchIssues}
-          disabled={loading}
-        >
-          <RefreshCwIcon
-            className={`mr-1.5 size-3.5 ${loading ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </Button>
+      {/* Summary Cards */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {loading ? (
+          <>
+            <Card className="border-border/50"><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
+            <Card className="border-border/50"><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
+            <Card className="border-border/50"><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
+          </>
+        ) : (
+          <>
+            <MetricCard
+              title="Total Unresolved"
+              value={totalUnresolved}
+              icon={BugIcon}
+              accent={totalUnresolved > 0 ? "amber" : "emerald"}
+              subtitle={totalUnresolved === 0 ? "All clear" : "Needs attention"}
+            />
+            <MetricCard
+              title="Errors Today"
+              value={errorsToday}
+              icon={AlertTriangleIcon}
+              accent={errorsToday > 0 ? "amber" : "default"}
+            />
+            <MetricCard
+              title="Affected Users"
+              value={affectedUsers}
+              icon={UsersIcon}
+              accent="primary"
+            />
+          </>
+        )}
       </div>
 
-      {/* Error state */}
-      {error ? (
-        <div className="flex flex-col items-center gap-2 py-12 text-center rounded-lg border border-dashed">
-          <AlertTriangleIcon className="size-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchIssues}>
-            Retry
-          </Button>
-        </div>
-      ) : loading ? (
-        /* Loading skeleton cards */
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-l-4 border-l-gray-300 p-4"
-            >
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-3.5 w-1/2" />
-                <div className="flex items-center gap-4 mt-1">
-                  <Skeleton className="h-3.5 w-16" />
-                  <Skeleton className="h-3.5 w-16" />
-                  <Skeleton className="h-5 w-14 rounded-full" />
-                </div>
+      {/* Issues Table */}
+      <Card className="group/card relative overflow-hidden border-border/50 bg-gradient-to-br from-card via-card to-destructive/3 transition-all duration-300 card-glow">
+        <div className="absolute inset-0 bg-gradient-to-br from-destructive/3 via-transparent to-primary/3 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100 pointer-events-none" />
+        <CardHeader className="relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-destructive/15 to-destructive/5 ring-1 ring-destructive/10">
+                <ShieldAlertIcon className="size-5 text-destructive" />
+              </div>
+              <div>
+                <CardTitle>Recent Issues</CardTitle>
+                <CardDescription>
+                  {loading ? "Loading..." : error ? "Connection error" : `${issues.length} unresolved issues`}
+                </CardDescription>
               </div>
             </div>
-          ))}
-        </div>
-      ) : issues.length === 0 ? (
-        /* Empty state */
-        <div className="flex flex-col items-center gap-2 py-12 text-center rounded-lg border border-dashed">
-          <BugIcon className="size-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No unresolved issues. Nice work!
-          </p>
-        </div>
-      ) : (
-        /* Error severity feed */
-        <div className="flex flex-col gap-2.5">
-          {issues.map((issue) => (
-            <div
-              key={issue.id}
-              className={`rounded-xl border bg-card overflow-hidden ${getSeverityBorderClass(issue.level)} transition-colors hover:border-primary/20`}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchIssues}
+              disabled={loading}
+              className="gap-1.5"
             >
-              <div className="flex items-start gap-4 p-4">
-                {/* Severity icon */}
-                <div className={`flex size-9 items-center justify-center rounded-lg shrink-0 mt-0.5 ${
-                  issue.level === "fatal" ? "bg-red-100 dark:bg-red-900/30" :
-                  issue.level === "error" ? "bg-red-50 dark:bg-red-950/20" :
-                  issue.level === "warning" ? "bg-yellow-50 dark:bg-yellow-950/20" :
-                  "bg-muted"
-                }`}>
-                  {issue.level === "fatal" ? (
-                    <AlertTriangleIcon className="size-4 text-red-600 dark:text-red-400" />
-                  ) : issue.level === "error" ? (
-                    <BugIcon className="size-4 text-red-500 dark:text-red-400" />
-                  ) : (
-                    <AlertTriangleIcon className="size-4 text-yellow-600 dark:text-yellow-400" />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  {/* Title + level badge */}
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-sm font-semibold leading-snug truncate">{issue.title}</h3>
-                    <Badge
-                      variant={getLevelBadgeVariant(issue.level)}
-                      className={`shrink-0 text-[10px] ${
-                        issue.level === "warning"
-                          ? "bg-yellow-500/15 text-yellow-700 hover:bg-yellow-500/20 dark:text-yellow-400 border-yellow-500/30"
-                          : issue.level === "fatal"
-                            ? "uppercase"
-                            : ""
-                      }`}
-                    >
-                      {issue.level === "fatal" ? "FATAL" : issue.level}
-                    </Badge>
-                  </div>
-
-                  {/* Culprit */}
-                  {issue.culprit && (
-                    <p className="text-xs text-muted-foreground font-mono truncate mb-2">{issue.culprit}</p>
-                  )}
-
-                  {/* Meta row */}
-                  <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <HashIcon className="size-3" />
-                      <span className="tabular-nums font-semibold text-foreground">{Number(issue.count).toLocaleString("en-US")}</span> events
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <UsersIcon className="size-3" />
-                      <span className="tabular-nums font-semibold text-foreground">{(issue.userCount || 0).toLocaleString("en-US")}</span> users
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <CalendarIcon className="size-3" />
-                      first {formatRelativeTime(issue.firstSeen)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <ClockIcon className="size-3" />
-                      last {formatRelativeTime(issue.lastSeen)}
-                    </span>
-                  </div>
-                </div>
+              <RefreshCwIcon
+                className={`size-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="relative">
+          {error ? (
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-destructive/10">
+                <AlertTriangleIcon className="size-6 text-destructive" />
               </div>
-
-              {/* External link footer */}
-              <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/20">
-                <span className="text-[10px] text-muted-foreground font-mono">{issue.shortId}</span>
-                <a
-                  href={issue.permalink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
-                >
-                  View in Sentry <ExternalLinkIcon className="size-3" />
-                </a>
+              <div>
+                <p className="text-sm font-medium">{error}</p>
+                <p className="text-xs text-muted-foreground mt-1">Check Sentry API key in environment settings</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={fetchIssues}>
+                Retry
+              </Button>
+            </div>
+          ) : loading ? (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : issues.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-emerald-500/10">
+                <BugIcon className="size-6 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">No unresolved issues</p>
+                <p className="text-xs text-muted-foreground mt-1">All errors have been resolved. Nice work!</p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="rounded-lg border border-border/50 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Issue</TableHead>
+                    <TableHead className="w-[80px] text-right">Events</TableHead>
+                    <TableHead className="w-[80px] text-right">Users</TableHead>
+                    <TableHead className="w-[80px]">Level</TableHead>
+                    <TableHead className="w-[100px]">First Seen</TableHead>
+                    <TableHead className="w-[100px]">Last Seen</TableHead>
+                    <TableHead className="w-[40px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {issues.map((issue) => (
+                    <TableRow key={issue.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium leading-tight">
+                            {issue.title}
+                          </span>
+                          {issue.culprit && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[400px]">
+                              {issue.culprit}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">
+                        {Number(issue.count).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {(issue.userCount || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getLevelBadgeVariant(issue.level)}>
+                          {issue.level}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
+                        {formatRelativeTime(issue.firstSeen)}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
+                        {formatRelativeTime(issue.lastSeen)}
+                      </TableCell>
+                      <TableCell>
+                        <a
+                          href={issue.permalink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <ExternalLinkIcon className="size-3.5" />
+                        </a>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

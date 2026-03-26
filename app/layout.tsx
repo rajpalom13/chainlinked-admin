@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { PostHogProvider } from "@/components/posthog-provider";
-import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,19 +29,14 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <script dangerouslySetInnerHTML={{ __html: `
-          try {
-            if (localStorage.getItem('theme') === 'dark') {
-              document.documentElement.classList.add('dark')
-            }
-          } catch(e) {}
-        ` }} />
-        <PostHogProvider>
-          {children}
-          <Toaster />
-        </PostHogProvider>
+        <ThemeProvider>
+          <PostHogProvider>
+            {children}
+          </PostHogProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
