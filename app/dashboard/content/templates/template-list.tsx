@@ -20,7 +20,6 @@ import { toast } from "sonner"
 import {
   LayoutTemplateIcon,
   UserIcon,
-  CalendarIcon,
   SparklesIcon,
   GlobeIcon,
   LockIcon,
@@ -29,9 +28,7 @@ import {
   XIcon,
   CopyIcon,
   ClipboardIcon,
-  HashIcon,
   BarChart3Icon,
-  FileTextIcon,
   SendIcon,
 } from "lucide-react"
 

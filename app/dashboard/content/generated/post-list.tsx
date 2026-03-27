@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,10 +27,6 @@ import {
 import { toast } from "sonner"
 import {
   SparklesIcon,
-  CalendarIcon,
-  UserIcon,
-  TypeIcon,
-  HashIcon,
   BrainCircuitIcon,
   CoinsIcon,
   MessageSquareIcon,

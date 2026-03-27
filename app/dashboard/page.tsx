@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import {
   UsersIcon,
   ActivityIcon,
@@ -385,7 +384,7 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="relative">
               <div className="flex items-end gap-1.5">
-                {funnelSteps.map((step, i) => (
+                {funnelSteps.map((step) => (
                   <div key={step.label} className="flex-1 flex flex-col items-center gap-1.5">
                     <span className="text-xs font-bold tabular-nums">{step.count}</span>
                     <div

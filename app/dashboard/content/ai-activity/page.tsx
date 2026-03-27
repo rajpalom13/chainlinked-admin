@@ -4,9 +4,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import {
   BotIcon,
-  ExternalLinkIcon,
   ArrowRightIcon,
-  UserIcon,
 } from "lucide-react"
 import { ActivityTabs } from "./activity-tabs"
 
@@ -270,7 +268,6 @@ export default async function AIActivityPage() {
                         </div>
                         {/* Entries */}
                         {dateLogs.map((log) => {
-                          const meta = metadataSummary(log.metadata)
                           return (
                             <div key={log.id} className="flex items-center gap-3 py-2.5 px-3 hover:bg-muted/30 rounded-lg transition-colors">
                               <div className={`size-2.5 rounded-full shrink-0 ${log.success ? "bg-primary" : "bg-destructive"}`} />

@@ -22,29 +22,10 @@ import {
   CoinsIcon,
   DollarSignIcon,
   CalendarIcon,
-  TrendingUpIcon,
   ZapIcon,
-  CpuIcon,
   HashIcon,
   WalletIcon,
 } from "lucide-react"
-
-const DONUT_COLORS = [
-  "hsl(221, 83%, 53%)",
-  "hsl(262, 83%, 58%)",
-  "hsl(330, 81%, 60%)",
-  "hsl(24, 95%, 53%)",
-  "hsl(142, 71%, 45%)",
-  "hsl(198, 93%, 60%)",
-  "hsl(47, 96%, 53%)",
-  "hsl(0, 72%, 51%)",
-]
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toLocaleString("en-US")
-}
 
 export default async function TokensAnalyticsPage() {
   const [{ data: logs }, openRouterBalance, openRouterActivity, openRouterCredits] = await Promise.all([
@@ -61,8 +42,6 @@ export default async function TokensAnalyticsPage() {
   // Local DB metrics
   const totalTokens = allLogs.reduce((sum, l) => sum + (l.total_tokens ?? 0), 0)
   const totalCost = allLogs.reduce((sum, l) => sum + (l.estimated_cost || 0), 0)
-  const uniqueUsers = new Set(allLogs.map((l) => l.user_id)).size
-
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const weekLogs = allLogs.filter((l) => new Date(l.created_at) >= weekAgo)
@@ -97,8 +76,6 @@ export default async function TokensAnalyticsPage() {
       avgTokens: userMap[uid].requests > 0 ? Math.round(userMap[uid].tokens / userMap[uid].requests) : 0,
     }))
     .sort((a, b) => b.tokens - a.tokens)
-
-  const maxTokens = userRows.length > 0 ? userRows[0].tokens : 1
 
   // Daily cost trend chart data
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)

@@ -1,11 +1,7 @@
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/empty-state"
 import { BarChartIcon } from "lucide-react"
 import { PostHogTabs } from "./posthog-tabs"

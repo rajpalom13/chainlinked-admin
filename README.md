@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ChainLinked Admin
+
+Admin dashboard for **ChainLinked** — a LinkedIn content management platform. Monitor users, AI-generated content, analytics, costs, and system health from a single panel.
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router, Server Components)
+- **Language:** TypeScript 5
+- **Styling:** Tailwind CSS 4 + shadcn/ui
+- **Database:** Supabase (PostgreSQL)
+- **Auth:** JWT with HTTP-only cookies
+- **AI:** OpenRouter API
+- **Analytics:** PostHog
+- **Error Tracking:** Sentry
+- **Charts:** Recharts
+
+## Features
+
+- **Dashboard** — Overview metrics, recent activity, system status
+- **User Management** — User list, profiles, onboarding funnel analytics
+- **Content Management** — Generated posts, scheduled posts, templates, AI activity logs
+- **Analytics** — Token usage, costs, feature adoption, AI model performance, LinkedIn metrics, PostHog embeds
+- **System** — Background jobs monitor, Sentry error viewer, feature flags
+- **Settings** — Admin password management, environment status
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- A Supabase project
+- (Optional) OpenRouter, PostHog, and Sentry accounts
+
+### Environment Variables
+
+Copy `.env.local.example` or create `.env.local` with:
+
+```env
+# Required
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+ADMIN_JWT_SECRET=your_jwt_secret
+
+# AI (optional)
+OPENROUTER_API_KEY=your_openrouter_key
+
+# Analytics (optional)
+NEXT_PUBLIC_POSTHOG_KEY=your_posthog_key
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+POSTHOG_API_KEY=your_posthog_api_key
+POSTHOG_PROJECT_ID=your_project_id
+
+# Error Tracking (optional)
+SENTRY_API_TOKEN=your_sentry_token
+SENTRY_ORG=your_org
+SENTRY_PROJECT=your_project
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> If `ADMIN_JWT_SECRET` is not set, auth is bypassed for local development.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Install & Run
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000).
 
-To learn more about Next.js, take a look at the following resources:
+### Create an Admin User
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npx tsx scripts/seed-admin.ts <username> <password>
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+app/
+  api/            # Auth & admin API routes
+  dashboard/      # All dashboard pages
+  login/          # Login page
+components/
+  ui/             # shadcn/ui components
+  charts/         # Recharts wrapper components
+lib/
+  auth.ts         # JWT + bcrypt authentication
+  openrouter.ts   # OpenRouter API client
+  posthog.ts      # PostHog API queries
+  quality-score.ts # Content quality scoring
+  rate-limit.ts   # Rate limiter
+  supabase/       # Supabase client
+scripts/
+  seed-admin.ts   # Admin user seeder
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm start` | Run production server |
+| `npm run lint` | Run ESLint |

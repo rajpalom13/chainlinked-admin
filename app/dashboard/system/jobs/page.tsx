@@ -26,26 +26,6 @@ import {
 
 const RUNNING_STATUSES = ["pending", "scraping", "researching", "analyzing"]
 
-function statusColor(status: string) {
-  if (status === "completed") return "bg-green-500"
-  if (status === "failed") return "bg-red-500"
-  return "bg-yellow-500"
-}
-
-function statusBadgeClass(status: string) {
-  if (status === "completed") return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
-  if (status === "failed") return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
-  return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800"
-}
-
-function countByStatus(jobs: { status: string }[]) {
-  return {
-    completed: jobs.filter((j) => j.status === "completed").length,
-    running: jobs.filter((j) => RUNNING_STATUSES.includes(j.status)).length,
-    failed: jobs.filter((j) => j.status === "failed").length,
-  }
-}
-
 async function getJobs() {
   const [companyRes, researchRes, suggestionRes, profilesRes] = await Promise.all([
     supabaseAdmin.from("company_context").select("id, company_name, status, error_message, created_at, completed_at, user_id").order("created_at", { ascending: false }),
@@ -82,16 +62,6 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 
 export default async function JobsPage() {
   const { company, research, suggestions, names, running, completed, failed, total } = await getJobs()
-
-  const cs = countByStatus(company)
-  const rs = countByStatus(research)
-  const ss = countByStatus(suggestions)
-
-  const runPct = total > 0 ? Math.round((running / total) * 100) : 0
-  const compPct = total > 0 ? Math.round((completed / total) * 100) : 0
-  const failPct = total > 0 ? Math.round((failed / total) * 100) : 0
-
-  const dateFmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 
   return (
     <div className="flex flex-col gap-4 px-4 lg:px-6">

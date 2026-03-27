@@ -12,7 +12,6 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import {
-  CalendarIcon,
   ClockIcon,
   UserIcon,
   GlobeIcon,
@@ -21,7 +20,6 @@ import {
   CopyIcon,
   ClipboardIcon,
   SendIcon,
-  MessageSquareIcon,
 } from "lucide-react"
 
 interface ScheduledPost {

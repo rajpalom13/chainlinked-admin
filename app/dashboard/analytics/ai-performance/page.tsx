@@ -93,14 +93,6 @@ export default async function AIPerformancePage() {
     return "Other"
   }
 
-  const CATEGORY_COLORS: Record<string, string> = {
-    Remix: "bg-primary/10 text-primary border-primary/20",
-    "Post Type": "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    Carousel: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    Foundation: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    Other: "bg-muted text-muted-foreground",
-  }
-
   // Build prompt stats
   const promptStats: PromptStat[] = allPrompts.map((prompt) => {
     const logs = logsByPromptType[prompt.type] ?? []
@@ -147,7 +139,6 @@ export default async function AIPerformancePage() {
     if (log.feature) modelMap[model].features.add(log.feature)
   }
   const modelEntries = Object.entries(modelMap).sort((a, b) => b[1].calls - a[1].calls)
-  const maxModelCalls = modelEntries.length > 0 ? modelEntries[0][1].calls : 1
 
   // ---- Cost Summary ----
   const totalSpend = allLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)

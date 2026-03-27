@@ -57,9 +57,6 @@ export default async function CostDashboardPage() {
   const todayLogs = allLogs.filter((l) => l.created_at.startsWith(todayStr))
   const todaySpend = todayLogs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
 
-  const totalRequests = allLogs.length
-  const avgPerRequest = totalRequests > 0 ? totalSpend / totalRequests : 0
-
   // ---- Daily cost (last 30 days) ----
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   const dailyCostMap: Record<string, number> = {}

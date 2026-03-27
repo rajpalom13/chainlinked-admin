@@ -45,3 +45,12 @@ next-env.d.ts
 
 # screenshots
 /screenshots
+test-*.png
+test[0-9]*.png
+login-page-screenshot.png
+
+# claude
+.claude/
+
+# internal dev docs
+/docs/superpowers/

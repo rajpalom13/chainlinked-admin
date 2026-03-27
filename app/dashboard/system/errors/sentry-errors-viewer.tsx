@@ -17,10 +17,7 @@ import { MetricCard } from "@/components/metric-card"
 import {
   AlertTriangleIcon,
   BugIcon,
-  CalendarIcon,
-  ClockIcon,
   ExternalLinkIcon,
-  HashIcon,
   RefreshCwIcon,
   UsersIcon,
   ShieldAlertIcon,
@@ -69,18 +66,6 @@ function getLevelBadgeVariant(level: string) {
       return "secondary" as const
     default:
       return "outline" as const
-  }
-}
-
-function getSeverityBorderClass(level: string): string {
-  switch (level) {
-    case "fatal":
-    case "error":
-      return "border-l-4 border-l-red-500"
-    case "warning":
-      return "border-l-4 border-l-yellow-500"
-    default:
-      return "border-l-4 border-l-gray-400"
   }
 }
 

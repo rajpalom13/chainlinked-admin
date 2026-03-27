@@ -34,7 +34,7 @@ interface PostHogTabsProps {
   apiKey: string
 }
 
-export function PostHogTabs({ dashboardUrl, posthogHost, projectId, apiKey }: PostHogTabsProps) {
+export function PostHogTabs({ dashboardUrl, posthogHost, projectId }: PostHogTabsProps) {
   const [recordings, setRecordings] = useState<Recording[]>([])
   const [loadingRecordings, setLoadingRecordings] = useState(true)
   const [recordingsError, setRecordingsError] = useState<string | null>(null)
