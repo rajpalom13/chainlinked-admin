@@ -30,6 +30,8 @@ import {
   LinkedinIcon,
   MonitorSmartphoneIcon,
   ArrowLeftIcon,
+  BarChart3Icon,
+  ExternalLinkIcon,
 } from "lucide-react"
 
 async function getUserDetail(id: string) {
@@ -192,6 +194,22 @@ export default async function UserDetailPage({
                 {profile.linkedin_user_id ? "LinkedIn connected" : "LinkedIn not connected"}
               </Badge>
             </div>
+
+            {/* External analytics */}
+            {process.env.POSTHOG_DASHBOARD_URL && (
+              <div className="mt-3">
+                <a
+                  href={process.env.POSTHOG_DASHBOARD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <BarChart3Icon className="size-3" />
+                  View analytics in PostHog
+                  <ExternalLinkIcon className="size-3" />
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -260,7 +278,9 @@ export default async function UserDetailPage({
                   {generatedPosts.map((post) => (
                     <TableRow key={post.id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="max-w-[300px]">
-                        <p className="truncate text-sm">{post.content?.slice(0, 80) ?? "-"}</p>
+                        <Link href={`/dashboard/content/generated?post=${post.id}`} className="block truncate text-sm text-foreground hover:text-primary transition-colors">
+                          {post.content?.slice(0, 80) ?? "-"}
+                        </Link>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{post.post_type ?? "-"}</Badge>

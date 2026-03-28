@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/client"
 import { MetricCard } from "@/components/metric-card"
+import { InfoTooltip } from "@/components/info-tooltip"
 import {
   Card,
   CardContent,
@@ -80,9 +81,9 @@ export default async function CostDashboardPage() {
   // ---- Cost by model ----
   const costByModel: Record<string, number> = {}
   for (const l of allLogs) {
-    let model = (l.model ?? "unknown").split("/").pop() || l.model || "unknown"
-    // Shorten long model names for chart readability
-    model = model.replace("-2025-04-14", "").replace("openai/", "")
+    const raw = l.model ?? "unknown"
+    const short = raw.includes("/") ? raw.split("/").pop()! : raw
+    const model = short.replace(/-\d{4}-\d{2}-\d{2}$/, "")
     costByModel[model] = (costByModel[model] ?? 0) + (l.estimated_cost || 0)
   }
   const costByModelData = Object.entries(costByModel)
@@ -167,28 +168,28 @@ export default async function CostDashboardPage() {
         <MetricCard
           title="Total AI Spend"
           value={`$${totalSpend.toFixed(4)}`}
-          subtitle="All time"
+          subtitle="Sum of estimated_cost from all logged API requests"
           icon={DollarSignIcon}
           accent="primary"
         />
         <MetricCard
           title="This Month"
           value={`$${monthSpend.toFixed(4)}`}
-          subtitle={startOfMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          subtitle="From the 1st of this month to now"
           icon={CalendarDaysIcon}
           accent="blue"
         />
         <MetricCard
           title="This Week"
           value={`$${weekSpend.toFixed(4)}`}
-          subtitle="Last 7 days"
+          subtitle="Last 7 calendar days"
           icon={CalendarIcon}
           accent="amber"
         />
         <MetricCard
           title="Today"
           value={`$${todaySpend.toFixed(4)}`}
-          subtitle={now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+          subtitle="Since midnight today"
           icon={ClockIcon}
           accent="emerald"
         />

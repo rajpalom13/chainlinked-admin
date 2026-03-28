@@ -312,7 +312,7 @@ export default async function DashboardPage() {
           <MetricCard
             title="Token Usage"
             value={metrics.totalTokens.toLocaleString()}
-            subtitle={`$${metrics.totalCost.toFixed(2)} cost`}
+            subtitle={`$${metrics.totalCost.toFixed(2)} app cost`}
             icon={CoinsIcon}
             accent="amber"
             compact

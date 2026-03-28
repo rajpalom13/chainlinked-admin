@@ -22,8 +22,9 @@ import {
   CostByModelChart,
   DailyTokenChart,
   UsageByFeatureChart,
-  UserFeatureHeatmap,
+  FeatureTimeHeatmap,
 } from "@/components/charts/ai-performance-charts"
+import { InfoTooltip } from "@/components/info-tooltip"
 import { PromptTable } from "./prompt-table"
 import {
   DollarSignIcon,
@@ -56,7 +57,6 @@ export default async function AIPerformancePage() {
     { data: systemPrompts },
     { data: usageLogs },
     { data: generatedPosts },
-    { data: profiles },
   ] = await Promise.all([
     supabaseAdmin
       .from("system_prompts")
@@ -67,9 +67,6 @@ export default async function AIPerformancePage() {
     supabaseAdmin
       .from("generated_posts")
       .select("content, source"),
-    supabaseAdmin
-      .from("profiles")
-      .select("id, full_name, email"),
   ])
 
   const allPrompts = systemPrompts ?? []
@@ -130,7 +127,10 @@ export default async function AIPerformancePage() {
   // ---- Model Comparison ----
   const modelMap: Record<string, { calls: number; totalTime: number; totalTokens: number; totalCost: number; features: Set<string> }> = {}
   for (const log of allLogs) {
-    const model = log.model ?? "unknown"
+    // Normalize model name: strip provider prefix and date suffix
+    const raw = log.model ?? "unknown"
+    const short = raw.includes("/") ? raw.split("/").pop()! : raw
+    const model = short.replace(/-\d{4}-\d{2}-\d{2}$/, "")
     if (!modelMap[model]) modelMap[model] = { calls: 0, totalTime: 0, totalTokens: 0, totalCost: 0, features: new Set() }
     modelMap[model].calls += 1
     modelMap[model].totalTime += log.response_time_ms || 0
@@ -192,27 +192,40 @@ export default async function AIPerformancePage() {
   }
   const dailyCostData = Object.entries(dailyCostMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, cost]) => ({ date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }), cost }))
   const dailyTokenData = Object.entries(dailyTokenMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, tokens]) => ({ date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }), input: tokens.input, output: tokens.output }))
-  const costByModelData = modelEntries.map(([model, stats]) => ({ model: model.split("/").pop() || model, cost: stats.totalCost }))
+  const costByModelData = modelEntries.map(([model, stats]) => ({ model, cost: stats.totalCost }))
   const featureCountMap: Record<string, number> = {}
   for (const log of allLogs) { const f = log.feature ?? "unknown"; featureCountMap[f] = (featureCountMap[f] ?? 0) + 1 }
   const usageByFeatureData = Object.entries(featureCountMap).sort((a, b) => b[1] - a[1]).map(([feature, count]) => ({ feature, count }))
 
-  // ---- Heatmap Data ----
-  const profileMap = new Map<string, string>()
-  for (const p of profiles ?? []) profileMap.set(p.id, p.full_name || p.email || p.id.slice(0, 8))
-  const userFeatureMatrix: Record<string, Record<string, number>> = {}
-  const allFeatures = Array.from(featureSet).sort()
-  const userIdsWithUsage = new Set<string>()
-  for (const log of allLogs) {
-    const uid = log.user_id; const feature = log.feature
-    if (!uid || !feature) continue
-    userIdsWithUsage.add(uid)
-    if (!userFeatureMatrix[uid]) userFeatureMatrix[uid] = {}
-    userFeatureMatrix[uid][feature] = (userFeatureMatrix[uid][feature] ?? 0) + 1
+  // ---- Feature x Time Heatmap Data ----
+  const featureTimeMatrix: Record<string, Record<string, number>> = {}
+  const weekLabels: string[] = []
+  // Build last 8 weeks
+  for (let i = 7; i >= 0; i--) {
+    const weekStart = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000)
+    const label = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    weekLabels.push(label)
   }
+  for (const log of allLogs) {
+    const feature = log.feature
+    if (!feature) continue
+    const logDate = new Date(log.created_at)
+    const weeksAgo = Math.floor((now.getTime() - logDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
+    if (weeksAgo >= 8) continue
+    const weekIdx = 7 - weeksAgo
+    const weekLabel = weekLabels[weekIdx]
+    if (!weekLabel) continue
+    if (!featureTimeMatrix[feature]) featureTimeMatrix[feature] = {}
+    featureTimeMatrix[feature][weekLabel] = (featureTimeMatrix[feature][weekLabel] ?? 0) + 1
+  }
+  const allFeatures = Array.from(featureSet).sort()
   let heatmapMaxCount = 0
-  for (const uid of userIdsWithUsage) { for (const f of allFeatures) { const c = userFeatureMatrix[uid]?.[f] ?? 0; if (c > heatmapMaxCount) heatmapMaxCount = c } }
-  const heatmapUsers = Array.from(userIdsWithUsage).map((uid) => ({ id: uid, name: profileMap.get(uid) || uid.slice(0, 8) })).sort((a, b) => a.name.localeCompare(b.name))
+  for (const feature of allFeatures) {
+    for (const week of weekLabels) {
+      const c = featureTimeMatrix[feature]?.[week] ?? 0
+      if (c > heatmapMaxCount) heatmapMaxCount = c
+    }
+  }
 
   return (
     <div className="space-y-6 px-4 lg:px-6">
@@ -225,9 +238,9 @@ export default async function AIPerformancePage() {
 
       {/* Cost Summary */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard title="Total AI Spend" value={`$${totalSpend.toFixed(4)}`} subtitle="All time" icon={DollarSignIcon} accent="primary" />
-        <MetricCard title="Cost This Week" value={`$${costThisWeek.toFixed(4)}`} subtitle="Last 7 days" icon={CalendarIcon} accent="blue" />
-        <MetricCard title="Avg Cost / Request" value={`$${avgCostPerRequest.toFixed(6)}`} subtitle={`${allLogs.length} total requests`} icon={CalculatorIcon} accent="amber" />
+        <MetricCard title="Total AI Spend" value={`$${totalSpend.toFixed(4)}`} subtitle="Sum of estimated_cost from all logged API calls" icon={DollarSignIcon} accent="primary" />
+        <MetricCard title="Cost This Week" value={`$${costThisWeek.toFixed(4)}`} subtitle="API calls in the last 7 days" icon={CalendarIcon} accent="blue" />
+        <MetricCard title="Avg Cost / Request" value={`$${avgCostPerRequest.toFixed(6)}`} subtitle={`Total spend / ${allLogs.length} requests`} icon={CalculatorIcon} accent="amber" />
       </div>
 
       {/* Charts */}
@@ -240,12 +253,12 @@ export default async function AIPerformancePage() {
         <UsageByFeatureChart data={usageByFeatureData} />
       </div>
 
-      {/* Per-User Heatmap */}
-      {allFeatures.length > 0 && heatmapUsers.length > 0 && (
-        <UserFeatureHeatmap users={heatmapUsers} features={allFeatures} matrix={userFeatureMatrix} maxCount={heatmapMaxCount} />
+      {/* Feature x Time Heatmap */}
+      {allFeatures.length > 0 && weekLabels.length > 0 && (
+        <FeatureTimeHeatmap features={allFeatures} weeks={weekLabels} matrix={featureTimeMatrix} maxCount={heatmapMaxCount} />
       )}
 
-      {/* Model Comparison — Table */}
+      {/* Model Comparison - Table */}
       <Card className="border-border/50 bg-gradient-to-br from-card via-card to-primary/3 overflow-hidden">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -254,7 +267,10 @@ export default async function AIPerformancePage() {
             </div>
             <div>
               <CardTitle>Model Comparison</CardTitle>
-              <CardDescription>{modelEntries.length} models used</CardDescription>
+              <CardDescription>
+                {modelEntries.length} models used
+                <InfoTooltip text="Compares all AI models used. Cost/Call = total spend for that model / number of calls. Avg Time = total response time / calls. Cheapest model is highlighted." />
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -277,7 +293,7 @@ export default async function AIPerformancePage() {
                 </TableHeader>
                 <TableBody>
                   {modelEntries.map(([model, stats], i) => {
-                    const shortName = model.split("/").pop()?.replace("-2025-04-14", "") || model
+                    const shortName = model
                     const avgMs = formatTime(stats.calls > 0 ? stats.totalTime / stats.calls : 0)
                     const avgTokens = stats.calls > 0 ? Math.round(stats.totalTokens / stats.calls) : 0
                     const costPerCall = stats.calls > 0 ? stats.totalCost / stats.calls : 0
@@ -316,10 +332,10 @@ export default async function AIPerformancePage() {
         </CardContent>
       </Card>
 
-      {/* Prompt Performance — Collapsible Table */}
+      {/* Prompt Performance - Collapsible Table */}
       <PromptTable prompts={sortedPrompts} />
 
-      {/* Output Quality — Combined Card */}
+      {/* Output Quality - Combined Card */}
       <Card className="border-border/50 bg-gradient-to-br from-card via-card to-emerald-500/3 overflow-hidden">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -328,7 +344,10 @@ export default async function AIPerformancePage() {
             </div>
             <div>
               <CardTitle>Output Quality</CardTitle>
-              <CardDescription>{totalPosts} posts analyzed · Average score {avgQuality.toFixed(1)}/100</CardDescription>
+              <CardDescription>
+                {totalPosts} posts analyzed · Average score {avgQuality.toFixed(1)}/100
+                <InfoTooltip text="Quality scores are calculated from 6 criteria: word count (0-25pts, optimal 150-400 words), hook quality (0-20pts, short engaging first line), CTA presence (0-15pts, ends with question or action words), formatting (0-15pts, line breaks and readability), hashtag count (0-10pts, optimal 2-5), and length fit (0-15pts, optimal 200-3000 chars). Total out of 100." />
+              </CardDescription>
             </div>
           </div>
         </CardHeader>

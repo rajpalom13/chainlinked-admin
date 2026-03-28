@@ -229,14 +229,14 @@ export function UsageByFeatureChart({ data }: UsageByFeatureChartProps) {
   )
 }
 
-interface UserFeatureHeatmapProps {
-  users: { id: string; name: string }[]
+interface FeatureTimeHeatmapProps {
   features: string[]
+  weeks: string[]
   matrix: Record<string, Record<string, number>>
   maxCount: number
 }
 
-export function UserFeatureHeatmap({ users, features, matrix, maxCount }: UserFeatureHeatmapProps) {
+export function FeatureTimeHeatmap({ features, weeks, matrix, maxCount }: FeatureTimeHeatmapProps) {
   function getIntensity(count: number): string {
     if (count === 0) return "transparent"
     const ratio = Math.min(count / Math.max(maxCount, 1), 1)
@@ -247,40 +247,40 @@ export function UserFeatureHeatmap({ users, features, matrix, maxCount }: UserFe
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Per-User Feature Usage Heatmap</CardTitle>
+        <CardTitle>Feature Usage Over Time</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <div className="inline-grid gap-px" style={{
-            gridTemplateColumns: `160px repeat(${features.length}, minmax(80px, 1fr))`,
+            gridTemplateColumns: `140px repeat(${weeks.length}, minmax(60px, 1fr))`,
           }}>
             {/* Header row */}
             <div className="sticky left-0 bg-background px-2 py-1.5 text-xs font-medium text-muted-foreground">
-              User
+              Feature
             </div>
-            {features.map((f) => (
-              <div key={f} className="px-2 py-1.5 text-xs font-medium text-muted-foreground text-center truncate">
-                {f}
+            {weeks.map((w) => (
+              <div key={w} className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground text-center truncate">
+                {w}
               </div>
             ))}
 
             {/* Data rows */}
-            {users.map((user) => (
-              <React.Fragment key={user.id}>
+            {features.map((feature) => (
+              <React.Fragment key={feature}>
                 <div className="sticky left-0 bg-background px-2 py-1.5 text-xs font-medium truncate border-t border-border/50">
-                  {user.name}
+                  {feature}
                 </div>
-                {features.map((f) => {
-                  const count = matrix[user.id]?.[f] ?? 0
+                {weeks.map((week) => {
+                  const count = matrix[feature]?.[week] ?? 0
                   return (
                     <div
-                      key={`${user.id}-${f}`}
+                      key={`${feature}-${week}`}
                       className="px-2 py-1.5 text-xs text-center tabular-nums border-t border-border/50 rounded-sm relative group cursor-default"
                       style={{ backgroundColor: getIntensity(count) }}
                     >
                       {count > 0 ? count : ""}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-popover text-popover-foreground border border-border rounded px-2 py-1 text-xs whitespace-nowrap shadow-md z-10">
-                        {user.name}: {count} {f} request{count !== 1 ? "s" : ""}
+                        {feature}: {count} requests ({week})
                       </div>
                     </div>
                   )
@@ -288,6 +288,14 @@ export function UserFeatureHeatmap({ users, features, matrix, maxCount }: UserFe
               </React.Fragment>
             ))}
           </div>
+        </div>
+        {/* Legend */}
+        <div className="flex items-center gap-1.5 mt-3 text-[10px] text-muted-foreground">
+          <span>Less</span>
+          {[0.08, 0.25, 0.5, 0.75, 1].map((o) => (
+            <div key={o} className="size-3 rounded-sm" style={{ backgroundColor: `hsla(221, 83%, 53%, ${o})` }} />
+          ))}
+          <span>More</span>
         </div>
       </CardContent>
     </Card>

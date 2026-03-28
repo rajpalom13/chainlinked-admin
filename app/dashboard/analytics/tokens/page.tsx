@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DailyCostTrend } from "@/components/charts/token-charts"
+import { InfoTooltip } from "@/components/info-tooltip"
 import {
   CoinsIcon,
   DollarSignIcon,
@@ -153,11 +154,17 @@ export default async function TokensAnalyticsPage() {
           <CardContent className="relative">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Credits Used</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Credits Used
+                  <InfoTooltip text="All-time cumulative spend from your OpenRouter account (from /auth/key API). This is the total amount billed to your API key." />
+                </p>
                 <p className="text-xl font-bold tabular-nums">${openRouterBalance.usage.toFixed(4)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Credit Limit</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Credit Limit
+                  <InfoTooltip text="Maximum spend allowed on this API key. Set in your OpenRouter account settings." />
+                </p>
                 <p className="text-xl font-bold tabular-nums">
                   {openRouterBalance.limit ? `$${openRouterBalance.limit.toFixed(2)}` : "Unlimited"}
                 </p>
@@ -173,6 +180,7 @@ export default async function TokensAnalyticsPage() {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">
                   {balance !== null ? "Balance" : "Rate Limit"}
+                  <InfoTooltip text={balance !== null ? "Remaining credits = total_credits - total_usage from the OpenRouter credits API." : "Maximum requests allowed per time interval for this API key."} />
                 </p>
                 <p className="text-xl font-bold tabular-nums">
                   {balance !== null
@@ -189,17 +197,17 @@ export default async function TokensAnalyticsPage() {
       {/* Summary Cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Total Spend"
-          value={hasActivity ? `$${orTotalSpend.toFixed(4)}` : `$${totalCost.toFixed(4)}`}
-          subtitle={hasActivity ? "From OpenRouter" : "From local logs"}
+          title="Total Spend (All Time)"
+          value={openRouterBalance ? `$${openRouterBalance.usage.toFixed(4)}` : `$${totalCost.toFixed(4)}`}
+          subtitle={openRouterBalance ? "From OpenRouter account" : "From local logs"}
           icon={DollarSignIcon}
           accent="amber"
           compact
         />
         <MetricCard
-          title="Total Requests"
-          value={hasActivity ? orTotalRequests.toLocaleString() : allLogs.length.toLocaleString()}
-          subtitle={hasActivity ? "Last 30 days" : "All time"}
+          title="Last 30 Days"
+          value={hasActivity ? `$${orTotalSpend.toFixed(4)}` : `$${totalCost.toFixed(4)}`}
+          subtitle={hasActivity ? `${orTotalRequests.toLocaleString()} requests` : "All time"}
           icon={HashIcon}
           accent="primary"
           compact
@@ -207,7 +215,7 @@ export default async function TokensAnalyticsPage() {
         <MetricCard
           title="Total Tokens"
           value={hasActivity ? orTotalTokens.toLocaleString() : totalTokens.toLocaleString()}
-          subtitle={hasActivity ? "Prompt + completion" : "All time"}
+          subtitle={hasActivity ? "Prompt + completion (30d)" : "All time"}
           icon={CoinsIcon}
           accent="blue"
           compact

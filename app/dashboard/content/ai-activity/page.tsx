@@ -13,13 +13,16 @@ import { ActivityTabs } from "./activity-tabs"
 type NameMap = Map<string, string>
 
 function getUserName(userId: string | null, names: NameMap): string {
-  if (!userId) return "—"
+  if (!userId) return "Unknown"
   return names.get(userId) || userId.slice(0, 8)
 }
 
 function shortModel(model: string | null): string {
-  if (!model) return "—"
-  return model.replace(/^openai\//, "")
+  if (!model) return "unknown"
+  // Strip provider prefix (e.g., "openai/gpt-4.1" -> "gpt-4.1")
+  const short = model.includes("/") ? model.split("/").pop()! : model
+  // Strip date suffixes (e.g., "gpt-4.1-2025-04-14" -> "gpt-4.1")
+  return short.replace(/-\d{4}-\d{2}-\d{2}$/, "")
 }
 
 function formatMs(ms: number | null): string {
@@ -92,6 +95,16 @@ export default async function AIActivityPage() {
   profilesRes.data?.forEach((p) => {
     names.set(p.id, p.full_name || p.email || p.id.slice(0, 8))
   })
+
+  // Enrich conversations for detail sheet
+  const enrichedConversations = conversations.map((conv) => ({
+    ...conv,
+    messages: (conv.messages ?? []) as Array<{
+      id: string; role: string; parts: Array<{ text: string; type: string }>
+    }>,
+    userName: getUserName(conv.user_id, names),
+    linkedPost: postsByConversation.get(conv.id) ?? null,
+  }))
 
   // Stats
   const totalCost = logs.reduce((s, l) => s + (l.estimated_cost || 0), 0)
@@ -225,6 +238,7 @@ export default async function AIActivityPage() {
       {/* ── Tabbed Content with Segmented Control ── */}
       <ActivityTabs
         counts={{ requests: logs.length, conversations: conversations.length, output: posts.length }}
+        conversations={enrichedConversations}
         requestsContent={
               logs.length === 0 ? (
                 <EmptyState title="No generation requests" description="Prompt usage logs will appear here." icon={<BotIcon className="size-12" />} />
@@ -303,7 +317,7 @@ export default async function AIActivityPage() {
                     const initial = getUserName(conv.user_id, names).charAt(0).toUpperCase()
 
                     return (
-                      <div key={conv.id} className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                      <div key={conv.id} data-conv-id={conv.id} className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer">
                         <div className="relative shrink-0 mt-0.5">
                           <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
                             {initial}
