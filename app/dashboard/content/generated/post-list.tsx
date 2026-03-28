@@ -398,15 +398,18 @@ export function PostList({ posts }: { posts: Post[] }) {
   >(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
 
-  // Auto-select post from ?post= query param
+  // Auto-select post from ?post= query param (only on mount)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const postId = params.get("post")
-    if (postId && !selected) {
+    if (postId) {
       const post = posts.find((p) => p.id === postId)
       if (post) setSelected(post)
+      // Clear the query param so closing works
+      window.history.replaceState({}, "", window.location.pathname)
     }
-  }, [posts, selected])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Filter/sort state
   const [search, setSearch] = useState("")
