@@ -116,7 +116,7 @@ export default async function GeneratedPostsPage() {
   const sourceEntries = Object.entries(sourceDistribution).sort((a, b) => b[1] - a[1])
   const typeEntries = Object.entries(typeDistribution).sort((a, b) => b[1] - a[1])
   const statusEntries = Object.entries(statusDistribution).sort((a, b) => b[1] - a[1])
-  const userFeatureRows = Object.values(userFeatureMap).sort((a, b) => b.total - a.total)
+  const userFeatureRows = Object.entries(userFeatureMap).map(([uid, data]) => ({ uid, ...data })).sort((a, b) => b.total - a.total)
   const uniqueSources = Object.keys(sourceDistribution).length
 
   return (
@@ -309,7 +309,7 @@ export default async function GeneratedPostsPage() {
             </TableHeader>
             <TableBody>
               {userFeatureRows.map((row) => (
-                <TableRow key={row.name}>
+                <TableRow key={row.uid}>
                   <TableCell className="font-medium">{row.name}</TableCell>
                   <TableCell className="text-right tabular-nums font-semibold">{row.total}</TableCell>
                   <TableCell className="text-right tabular-nums">{row.compose || <span className="text-muted-foreground">-</span>}</TableCell>

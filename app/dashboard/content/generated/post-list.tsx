@@ -398,6 +398,16 @@ export function PostList({ posts }: { posts: Post[] }) {
   >(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
 
+  // Auto-select post from ?post= query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const postId = params.get("post")
+    if (postId && !selected) {
+      const post = posts.find((p) => p.id === postId)
+      if (post) setSelected(post)
+    }
+  }, [posts, selected])
+
   // Filter/sort state
   const [search, setSearch] = useState("")
   const [gradeFilters, setGradeFilters] = useState<Set<string>>(new Set())
